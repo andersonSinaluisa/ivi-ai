@@ -22,8 +22,9 @@ class FakeModel:
     def __init__(self) -> None:
         self.calls: list[tuple[int, str | None]] = []
 
-    def transcribe(self, audio, language=None, **_):
+    def transcribe(self, audio, language=None, **kwargs):
         self.calls.append((audio.size, language))
+        self.kwargs = kwargs
         return [FakeSegment(" hola "), FakeSegment("Jarvis ")], type("Info", (), {"language": language or "es"})()
 
 
@@ -50,6 +51,9 @@ def test_transcribes_wav_with_openai_compatible_api():
     assert r.status_code == 200, r.text
     assert r.json() == {"text": "hola Jarvis", "language": "es", "duration": 1.0}
     assert model.calls == [(16_000, "es")]
+    assert "Jarvis" in model.kwargs["initial_prompt"]  # vocabulario por defecto
+    c.post("/v1/audio/transcriptions", files={"file": ("a.wav", wav(0.5), "audio/wav")}, data={"prompt": "Anderson, Guayaquil"})
+    assert model.kwargs["initial_prompt"] == "Anderson, Guayaquil"
     assert c.get("/health").json()["ready"] is True
 
 

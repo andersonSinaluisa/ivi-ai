@@ -219,7 +219,7 @@ impl EmbeddingProvider for OllamaEmbedder {
             return Err(EmbeddingError::Unavailable("este equipo no está conectado a tu servidor".into()));
         }
         let mut request = self.client.post(format!("{}/api/embed", self.base_url)).json(&json!({"model": self.model, "input": texts}));
-        if let Some(token) = self.auth.token().await {
+        if let Some(token) = self.auth.token().await.map_err(EmbeddingError::Unavailable)? {
             request = request.bearer_auth(token);
         }
         let response = request.send().await.map_err(|e| EmbeddingError::Unavailable(e.to_string()))?;

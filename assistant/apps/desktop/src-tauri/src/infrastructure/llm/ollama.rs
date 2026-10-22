@@ -92,7 +92,7 @@ impl OllamaProvider {
     }
 
     async fn post(&self, path: &str, body: &Value) -> Result<reqwest::Response, LlmError> {
-        let token = self.options().auth.token().await;
+        let token = self.options().auth.token().await.map_err(credential_error)?;
         let response = self
             .client
             .post(self.url(path)?)
@@ -120,6 +120,10 @@ impl BearerOpt for reqwest::RequestBuilder {
     }
 }
 
+fn credential_error(reason: String) -> LlmError {
+    LlmError::Unavailable(format!("este equipo no tiene credencial para tu servidor ({reason})"))
+}
+
 fn map_transport(e: reqwest::Error) -> LlmError {
     if e.is_timeout() {
         LlmError::Timeout
@@ -136,10 +140,17 @@ async fn check_status(response: reqwest::Response, model: &str) -> Result<reqwes
         return Ok(response);
     }
     let body = response.text().await.unwrap_or_default();
-    let message = serde_json::from_str::<Value>(&body)
+    let ollama_error = serde_json::from_str::<Value>(&body)
         .ok()
-        .and_then(|v| v.get("error").and_then(Value::as_str).map(str::to_owned))
-        .unwrap_or(body);
+        .and_then(|v| v.get("error").and_then(Value::as_str).map(str::to_owned));
+    // Un 401 de Ollama (JSON con `error`) no es la credencial del equipo: las versiones recientes lo devuelven al
+    // pedir un modelo que no está descargado (lo buscan en ollama.com). El 401 de nginx no trae JSON.
+    if let (401 | 403, Some(e)) = (status.as_u16(), ollama_error.as_deref()) {
+        return Err(LlmError::Unavailable(format!(
+            "Ollama del servidor respondió «{e}» para el modelo '{model}'. ¿Está descargado? En el servidor: ollama list / ollama pull {model}"
+        )));
+    }
+    let message = ollama_error.unwrap_or(body);
     if status.as_u16() == 404 && message.contains("not found") {
         return Err(LlmError::ModelNotFound(model.to_owned()));
     }
@@ -248,7 +259,7 @@ impl LlmProvider for OllamaProvider {
     }
 
     async fn health(&self) -> Result<ProviderHealth, LlmError> {
-        let token = self.options().auth.token().await;
+        let token = self.options().auth.token().await.map_err(credential_error)?;
         let response = self
             .client
             .get(self.url("/api/version")?)
@@ -263,7 +274,7 @@ impl LlmProvider for OllamaProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<String>, LlmError> {
-        let token = self.options().auth.token().await;
+        let token = self.options().auth.token().await.map_err(credential_error)?;
         let response = self
             .client
             .get(self.url("/api/tags")?)
@@ -341,6 +352,30 @@ impl LlmProvider for OllamaProvider {
 
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    async fn a_401_from_ollama_itself_points_to_the_model_not_the_credential() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/chat"))
+            .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"error": "unauthorized"})))
+            .mount(&server)
+            .await;
+        let p = provider(&server.uri());
+        let e = p.chat_structured(vec![crate::domain::ChatMessage::user("hola")], serde_json::json!({})).await.expect_err("401");
+        assert!(matches!(&e, LlmError::Unavailable(m) if m.contains("ollama pull") && m.contains("unauthorized")), "{e}");
+
+        let nginx = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/chat"))
+            .respond_with(ResponseTemplate::new(401).set_body_string("<html>401 Authorization Required</html>"))
+            .mount(&nginx)
+            .await;
+        let e = provider(&nginx.uri()).chat_structured(vec![crate::domain::ChatMessage::user("hola")], serde_json::json!({})).await.expect_err("401");
+        assert!(matches!(&e, LlmError::Unavailable(m) if m.contains("credencial")), "{e}");
+    }
+
     use super::*;
     use crate::infrastructure::llm::LlmTool;
     use wiremock::matchers::{body_partial_json, method, path};

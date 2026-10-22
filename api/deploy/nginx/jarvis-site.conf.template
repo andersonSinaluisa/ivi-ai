@@ -100,6 +100,10 @@ server {
   # llega al servicio. Un device revocado pierde el acceso. Si un servicio no está levantado, responde 502.
   location = /_jarvis_access {
     internal;
+    # La subpetición hereda el Content-Length de la original (audio de /stt, historial de /ollama): sin esto, el
+    # límite de 64k del server la corta con 413 y nginx responde 500. El cuerpo no se reenvía (ver abajo); el
+    # tamaño real lo limita cada location.
+    client_max_body_size 0;
     proxy_pass http://jarvis_api/api/v1/access/check;
     proxy_pass_request_body off;
     proxy_set_header Content-Length "";

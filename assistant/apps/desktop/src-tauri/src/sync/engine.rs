@@ -480,13 +480,10 @@ impl SyncEngine {
 
 #[async_trait::async_trait]
 impl crate::infrastructure::llm::BearerSource for SyncEngine {
-    async fn bearer(&self) -> Option<String> {
-        match self.service_token().await {
-            Ok(token) => Some(token),
-            Err(e) => {
-                tracing::debug!(error = %e, "sin credencial del device para el servidor");
-                None
-            }
-        }
+    async fn bearer(&self) -> Result<String, String> {
+        self.service_token().await.map_err(|e| {
+            tracing::warn!(error = %e, "sin credencial del device para el servidor");
+            e.to_string()
+        })
     }
 }

@@ -32,6 +32,8 @@ services:
     environment:
       WHISPER_MODEL: ${WHISPER_MODEL:-base}      # tiny | base | small (en CPU, small ya es lento)
       WHISPER_THREADS: ${WHISPER_THREADS:-2}
+      WHISPER_BEAM_SIZE: ${WHISPER_BEAM_SIZE:-3}     # 1 = más rápido; 3–5 = menos errores
+      STT_PROMPT: ${STT_PROMPT:-Hola, Jarvis. Jarvis es mi asistente personal.}   # nombres que debe reconocer
     volumes:
       - stt-models:/models
     mem_limit: ${STT_MEM_LIMIT:-1500m}

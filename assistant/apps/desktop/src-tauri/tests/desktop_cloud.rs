@@ -330,7 +330,7 @@ async fn scenario_h_the_device_credential_opens_the_server_services() {
     use jarvis_desktop_lib::infrastructure::llm::BearerSource;
     let cloud = require_cloud!();
     let pc = Pc::new(Arc::new(HashingEmbedder::default()));
-    assert!(pc.sync.bearer().await.is_none(), "sin emparejar no hay credencial");
+    assert!(pc.sync.bearer().await.is_err(), "sin emparejar no hay credencial");
     pc.pair(&cloud, "pc-servicios").await;
     assert_eq!(pc.sync.server_url().as_deref(), Some(cloud.url.trim_end_matches('/')));
     let token = pc.sync.bearer().await.expect("token del device");

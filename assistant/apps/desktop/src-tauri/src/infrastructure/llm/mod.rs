@@ -94,15 +94,16 @@ pub trait LlmProvider: Send + Sync {
 /// emparejado con el Cloud Core (se renueva sola; ver `SyncEngine`).
 #[async_trait]
 pub trait BearerSource: Send + Sync {
-    async fn bearer(&self) -> Option<String>;
+    /// `Err` explica por qué no hay credencial (sin emparejar, revocada, sin red…), para mostrárselo al usuario.
+    async fn bearer(&self) -> Result<String, String>;
 }
 
 struct FixedBearer(String);
 
 #[async_trait]
 impl BearerSource for FixedBearer {
-    async fn bearer(&self) -> Option<String> {
-        Some(self.0.clone())
+    async fn bearer(&self) -> Result<String, String> {
+        Ok(self.0.clone())
     }
 }
 
@@ -126,10 +127,11 @@ impl Auth {
         Self(Some(source))
     }
 
-    pub async fn token(&self) -> Option<String> {
+    /// `Ok(None)` sin autenticación; `Err` si hay una fuente pero no da credencial (con el motivo).
+    pub async fn token(&self) -> Result<Option<String>, String> {
         match &self.0 {
-            Some(source) => source.bearer().await,
-            None => None,
+            Some(source) => source.bearer().await.map(Some),
+            None => Ok(None),
         }
     }
 }

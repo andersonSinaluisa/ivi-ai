@@ -31,6 +31,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 SAMPLE_RATE = 16_000
 MAX_BYTES = int(os.environ.get("STT_MAX_BYTES", str(10 * 1024 * 1024)))  # ~5 min de audio a 16 kHz
 MAX_SECONDS = int(os.environ.get("STT_MAX_SECONDS", "120"))
+#: Vocabulario que Whisper no conoce y debe reconocer (sin esto, «Jarvis» sale como «Yardis» o «ya Ruiz»).
+DEFAULT_PROMPT = os.environ.get("STT_PROMPT", "Hola, Jarvis. Jarvis es mi asistente personal.")
 
 
 def decode_wav(data: bytes) -> np.ndarray:
@@ -93,17 +95,22 @@ class Transcriber:
     def status(self) -> dict:
         return {"model": self.model_name, "ready": self._model is not None, "error": self._error}
 
-    def _transcribe(self, audio: np.ndarray, language: str | None) -> tuple[str, str]:
+    def _transcribe(self, audio: np.ndarray, language: str | None, prompt: str | None = None) -> tuple[str, str]:
         self.load()
         segments, info = self._model.transcribe(
-            audio, language=language or None, beam_size=1, vad_filter=True, condition_on_previous_text=False
+            audio,
+            language=language or None,
+            beam_size=int(os.environ.get("WHISPER_BEAM_SIZE", "3")),
+            vad_filter=True,
+            condition_on_previous_text=False,
+            initial_prompt=prompt or DEFAULT_PROMPT or None,
         )
         text = " ".join(s.text.strip() for s in segments).strip()
         return text, getattr(info, "language", language) or (language or "")
 
-    async def transcribe(self, audio: np.ndarray, language: str | None) -> tuple[str, str]:
+    async def transcribe(self, audio: np.ndarray, language: str | None, prompt: str | None = None) -> tuple[str, str]:
         async with self._run:
-            return await asyncio.to_thread(self._transcribe, audio, language)
+            return await asyncio.to_thread(self._transcribe, audio, language, prompt)
 
 
 def create_app(transcriber: Transcriber | None = None) -> FastAPI:
@@ -131,6 +138,7 @@ def create_app(transcriber: Transcriber | None = None) -> FastAPI:
         language: str | None = Form(None),  # noqa: B008
         model: str | None = Form(None),  # noqa: ARG001,B008 - compatibilidad OpenAI: se usa el modelo del servidor
         response_format: str | None = Form(None),  # noqa: ARG001,B008
+        prompt: str | None = Form(None),  # noqa: B008 - OpenAI: vocabulario/contexto para reconocer nombres propios
     ) -> dict:
         data = await file.read(MAX_BYTES + 1)
         if len(data) > MAX_BYTES:
@@ -146,7 +154,7 @@ def create_app(transcriber: Transcriber | None = None) -> FastAPI:
             raise HTTPException(status_code=413, detail=f"audio de {seconds:.0f} s (máximo {MAX_SECONDS} s)")
         started = time.perf_counter()
         try:
-            text, lang = await stt.transcribe(audio, language)
+            text, lang = await stt.transcribe(audio, language, (prompt or "")[:500] or None)
         except Exception as exc:  # noqa: BLE001
             log.exception("transcripción fallida")
             raise HTTPException(status_code=503, detail=f"modelo no disponible: {exc}") from exc

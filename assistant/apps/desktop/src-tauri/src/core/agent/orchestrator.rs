@@ -134,11 +134,10 @@ fn error_code(e: &LlmError) -> AgentErrorCode {
 fn error_message(e: &LlmError) -> String {
     match e {
         LlmError::ModelNotFound(m) => {
-            format!("El modelo '{m}' no está instalado. Instálalo con: ollama pull {m} (o elige otro en Configuración).")
+            format!("El modelo '{m}' no está en tu servidor. En el servidor: ollama pull {m} (o elige otro en Configuración → Modelo).")
         }
-        LlmError::Unavailable(_) => {
-            "No puedo conectar con Ollama. Comprueba que esté instalado y en ejecución (ollama serve).".into()
-        }
+        // El detalle dice qué falla: sin emparejar, credencial rechazada, Ollama caído en el servidor o sin red.
+        LlmError::Unavailable(detail) => format!("No pude usar el modelo de tu servidor: {detail}."),
         other => other.to_string(),
     }
 }
