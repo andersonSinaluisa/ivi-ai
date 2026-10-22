@@ -79,6 +79,41 @@ public sealed class BootstrapOwnerHandler(IJarvisDbContext db, IUserPasswordHash
     }
 }
 
+/// <summary>
+/// Restablece la contraseña de un usuario existente desde la consola del servidor (quien tiene acceso root al VPS).
+/// Cierra todas sus sesiones (refresh tokens revocados); los access tokens caducan solos en minutos.
+/// </summary>
+public sealed class ResetOwnerPasswordHandler(IJarvisDbContext db, IUserPasswordHasher hasher, TimeProvider clock, IRequestContext context)
+{
+    public async Task<Result<Guid>> HandleAsync(string email, string password, CancellationToken cancellationToken)
+    {
+        var policyError = PasswordPolicy.Validate(password);
+        if (policyError is not null)
+        {
+            return AppError.Validation("password", policyError);
+        }
+
+        context.EnterSystemScope();
+        var normalized = email.Trim();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == normalized, cancellationToken);
+        if (user is null)
+        {
+            return new AppError(ErrorCodes.ValidationFailed, "No user with this email.");
+        }
+
+        var now = clock.GetUtcNow();
+        user.ResetPassword(hasher.Hash(password), now);
+        var sessions = await db.RefreshTokens.Where(t => t.UserId == user.Id && t.RevokedAt == null).ToListAsync(cancellationToken);
+        foreach (var session in sessions)
+        {
+            session.Revoke(now);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return user.Id;
+    }
+}
+
 public sealed class LoginHandler(
     IJarvisDbContext db,
     IUserPasswordHasher hasher,

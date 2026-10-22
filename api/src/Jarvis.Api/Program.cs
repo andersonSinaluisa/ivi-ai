@@ -10,6 +10,7 @@ return command switch
     null => await RunServerAsync(rest),
     "migrate" => await AdminCommands.MigrateAsync(rest),
     "bootstrap-owner" => await AdminCommands.BootstrapOwnerAsync(rest),
+    "reset-owner-password" => await AdminCommands.ResetOwnerPasswordAsync(rest),
     "broker-bootstrap" => await AdminCommands.BrokerBootstrapAsync(rest),
     "healthcheck" => await AdminCommands.HealthcheckAsync(rest),
     _ => AdminCommands.Usage(command),

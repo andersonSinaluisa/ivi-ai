@@ -671,3 +671,33 @@ public sealed class WorkerProcessTests(JarvisTestEnvironment env, ITestOutputHel
         }
     }
 }
+
+/// <summary>reset-owner-password: la contraseña olvidada se restablece desde la consola del servidor.</summary>
+public sealed class OwnerPasswordResetTests(JarvisTestEnvironment env, ITestOutputHelper output) : IntegrationTest(env, output)
+{
+    [Fact]
+    public async Task Reset_changes_the_password_unlocks_and_closes_sessions()
+    {
+        var owner = await OwnerAsync();
+        for (var i = 0; i < 5; i++)
+        {
+            await Env.CreateClient().PostAsJsonAsync("/api/v1/auth/login", new { email = owner.Email, password = "mala-contraseña-123" });
+        }
+
+        await using (var scope = Env.Services.CreateAsyncScope())
+        {
+            var handler = scope.ServiceProvider.GetRequiredService<Jarvis.Application.Auth.ResetOwnerPasswordHandler>();
+            Assert.False((await handler.HandleAsync(owner.Email, "corta", CancellationToken.None)).IsSuccess);
+            Assert.False((await handler.HandleAsync("nadie@example.com", "Nueva-Contrasena-Larga-1", CancellationToken.None)).IsSuccess);
+            var reset = await handler.HandleAsync(owner.Email, "Nueva-Contrasena-Larga-1", CancellationToken.None);
+            Assert.True(reset.IsSuccess, reset.Error?.Message);
+        }
+
+        var old = await Env.CreateClient().PostAsJsonAsync("/api/v1/auth/login", new { email = owner.Email, password = owner.Password });
+        Assert.Equal(HttpStatusCode.Unauthorized, old.StatusCode);
+        var fresh = await Env.CreateClient().PostAsJsonAsync("/api/v1/auth/login", new { email = owner.Email, password = "Nueva-Contrasena-Larga-1" });
+        Assert.Equal(HttpStatusCode.OK, fresh.StatusCode);
+        var refresh = await Env.CreateClient().PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken = owner.Login.RefreshToken });
+        Assert.Equal(HttpStatusCode.Unauthorized, refresh.StatusCode);
+    }
+}

@@ -72,6 +72,7 @@
 | `USER_LOGIN_SUCCEEDED` | User | `{ "ip": "hash" }` |
 | `USER_LOGIN_FAILED` | System | `{ "reason": "bad_password" \| "locked" \| "unknown_user" }` |
 | `USER_LOCKED_OUT` | System | `{ "until" }` |
+| `USER_PASSWORD_RESET` | System | `{ "via": "reset-owner-password" }` |
 | `GRANT_CREATED` / `GRANT_DELETED` | User | `{ "sourceDeviceId", "targetDeviceId", "taskType" }` |
 | `SECURITY_VIOLATION` | Device/User | `{ "rule": "topic_device_mismatch" \| "not_task_target" \| "unknown_task" \| "task_not_dispatched" \| "message_flood" }` |
 

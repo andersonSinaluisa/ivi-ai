@@ -119,6 +119,24 @@ public sealed class User : Entity
             Actor: Actor.User(Id)));
     }
 
+    /// <summary>
+    /// Restablece la contraseña (solo desde la consola del servidor): quita el bloqueo por intentos fallidos. Las
+    /// sesiones abiertas las revoca el handler.
+    /// </summary>
+    public void ResetPassword(string passwordHash, DateTimeOffset now)
+    {
+        PasswordHash = passwordHash;
+        FailedLoginCount = 0;
+        LockedUntil = null;
+        UpdatedAt = now;
+        Raise(new DomainEvent(
+            EventTypes.UserPasswordReset,
+            Id,
+            now,
+            Data: new Dictionary<string, object?> { ["via"] = "reset-owner-password" },
+            Actor: Actor.System));
+    }
+
     public void Disable(DateTimeOffset now)
     {
         Status = UserStatus.Disabled;

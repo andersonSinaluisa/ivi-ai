@@ -12,7 +12,7 @@ public static class AdminCommands
     public static int Usage(string? command)
     {
         Console.Error.WriteLine($"Unknown command '{command}'.");
-        Console.Error.WriteLine("Usage: jarvis-api [migrate | bootstrap-owner --email <e> --display-name <n> | broker-bootstrap ... | healthcheck]");
+        Console.Error.WriteLine("Usage: jarvis-api [migrate | bootstrap-owner --email <e> --display-name <n> | reset-owner-password --email <e> | broker-bootstrap ... | healthcheck]");
         return 2;
     }
 
@@ -57,6 +57,36 @@ public static class AdminCommands
         }
 
         Console.WriteLine($"Owner created: {result.Value}");
+        return 0;
+    }
+
+    /// <summary>Nueva contraseña para un usuario existente (por stdin). Solo para quien administra el servidor.</summary>
+    public static async Task<int> ResetOwnerPasswordAsync(string[] args)
+    {
+        var email = Option(args, "--email");
+        if (email is null)
+        {
+            Console.Error.WriteLine("Usage: jarvis-api reset-owner-password --email <email>  (new password from stdin)");
+            return 2;
+        }
+
+        if (!Console.IsInputRedirected)
+        {
+            Console.Error.Write("New password: ");
+        }
+
+        var password = ReadSecretLine();
+        await using var app = BuildToolHost(args.Where(a => !a.StartsWith("--email", StringComparison.Ordinal)).ToArray(), useMigrator: false);
+        await using var scope = app.Services.CreateAsyncScope();
+        var result = await scope.ServiceProvider.GetRequiredService<ResetOwnerPasswordHandler>().HandleAsync(email, password, CancellationToken.None);
+        if (!result.IsSuccess)
+        {
+            var details = result.Error!.Errors is null ? string.Empty : " " + string.Join("; ", result.Error.Errors.SelectMany(e => e.Value));
+            Console.Error.WriteLine($"{result.Error.Code}: {result.Error.Message}{details}");
+            return 1;
+        }
+
+        Console.WriteLine($"Password reset for {result.Value}; open sessions were revoked.");
         return 0;
     }
 

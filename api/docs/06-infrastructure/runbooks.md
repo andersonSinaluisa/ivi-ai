@@ -130,3 +130,4 @@ Más un uptime check externo contra `https://${JARVIS_DOMAIN}/health/live` y el 
 | Readiness / métricas | `curl http://127.0.0.1:8080/health/ready` · `curl http://127.0.0.1:8081/metrics` (solo desde el propio servidor) |
 | Logs | `docker compose -f deploy/docker-compose.yml logs -f jarvis-api` · nginx: `/var/log/nginx/jarvis.access.log` |
 | Crear otro owner | `docker compose -f deploy/docker-compose.yml --env-file deploy/.env run --rm -T jarvis-api bootstrap-owner --email <e>` (contraseña por stdin) |
+| Contraseña del owner olvidada | `docker compose -f deploy/docker-compose.yml --env-file deploy/.env run --rm -T jarvis-api reset-owner-password --email <e>` (nueva contraseña por stdin; cierra sus sesiones y quita el bloqueo) |

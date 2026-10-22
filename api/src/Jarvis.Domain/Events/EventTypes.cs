@@ -34,6 +34,8 @@ public static class EventTypes
     public const string UserLoginSucceeded = "USER_LOGIN_SUCCEEDED";
     public const string UserLoginFailed = "USER_LOGIN_FAILED";
     public const string UserLockedOut = "USER_LOCKED_OUT";
+    /// <summary>Contraseña restablecida desde la consola del servidor (subcomando reset-owner-password).</summary>
+    public const string UserPasswordReset = "USER_PASSWORD_RESET";
     public const string GrantCreated = "GRANT_CREATED";
     public const string GrantDeleted = "GRANT_DELETED";
     public const string SecurityViolation = "SECURITY_VIOLATION";

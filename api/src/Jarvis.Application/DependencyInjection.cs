@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddSingleton<BrokerReconciler>();
 
         services.AddScoped<BootstrapOwnerHandler>();
+        services.AddScoped<ResetOwnerPasswordHandler>();
         services.AddScoped<LoginHandler>();
         services.AddScoped<RefreshHandler>();
         services.AddScoped<LogoutHandler>();
