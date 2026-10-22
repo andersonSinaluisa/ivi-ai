@@ -60,10 +60,10 @@ foreach ($k in @('HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017
 Show 'WebView2' ([bool]$wv) ($(if ($wv) { $wv } else { 'no encontrado (viene con Windows 11; si no, instala Evergreen Runtime)' }))
 
 # Python 3.11
-$py = $null
-if (Get-Command py -ErrorAction SilentlyContinue) { $py = (& py -3.11 --version 2>&1 | Out-String).Trim() }
-$pyOk = $py -match '^Python 3\.11'
-Show 'Python 3.11' $pyOk ($(if ($pyOk) { $py } else { 'no encontrado (py -3.11). Instala Python 3.11 de python.org' }))
+. (Join-Path $PSScriptRoot 'find-python.ps1')
+$found = Find-JarvisPython
+$pyOk = [bool]$found
+Show 'Python 3.11/3.12' $pyOk ($(if ($pyOk) { "$($found.Version) ($($found.Display))" } else { 'no encontrado. Instala con: winget install -e --id Python.Python.3.11' }))
 if (-not $pyOk) { $problems += 'Instala Python 3.11 (el servicio de voz lo requiere).' }
 
 # Ollama

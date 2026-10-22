@@ -26,12 +26,18 @@ if ($SkipVoice) {
     exit 0
 }
 
-Write-Host "`n[2/2] Servicio de voz (Python 3.11)" -ForegroundColor Cyan
+Write-Host "`n[2/2] Servicio de voz (Python 3.11 o 3.12)" -ForegroundColor Cyan
 $svc = Join-Path $root 'services\voice-service'
 $venv = Join-Path $svc '.venv'
 if (-not (Test-Path (Join-Path $venv 'Scripts\python.exe'))) {
-    py -3.11 -m venv $venv
-    if ($LASTEXITCODE -ne 0) { throw 'No se pudo crear el entorno con Python 3.11 (py -3.11). Instala Python 3.11.' }
+    . (Join-Path $PSScriptRoot 'find-python.ps1')
+    $found = Find-JarvisPython
+    if (-not $found) {
+        throw "No se encontro Python 3.11 ni 3.12 (se busco: py -3.11, py -3.12, python3.11, python3.12, python). Instalalo con:  winget install -e --id Python.Python.3.11   y abre una terminal nueva."
+    }
+    Write-Host "Usando $($found.Version) ($($found.Display))"
+    & $found.Exe @($found.Args + @('-m', 'venv', $venv))
+    if ($LASTEXITCODE -ne 0) { throw "No se pudo crear el entorno virtual con $($found.Display)" }
 }
 $python = Join-Path $venv 'Scripts\python.exe'
 & $python -m pip install --upgrade pip
