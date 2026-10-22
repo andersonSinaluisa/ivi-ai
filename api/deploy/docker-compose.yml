@@ -1,10 +1,13 @@
 # Jarvis Cloud Core en producción (ADR-011): PostgreSQL y nginx son NATIVOS en el host.
 # Docker solo ejecuta jarvis-api, jarvis-worker y mosquitto. Usar siempre a través de deploy/scripts/deploy.sh.
 #
-# - jarvis-api usa la red del host y escucha SOLO en 127.0.0.1 (8080 API/hub, 8081 métricas):
+# - jarvis-api usa la red del host y escucha SOLO en 127.0.0.1 (${JARVIS_API_PORT:-8080} API/hub, ${JARVIS_METRICS_PORT:-8081}
+#   métricas; se cambian en deploy/.env si el servidor ya usa esos puertos):
 #   llega a PostgreSQL por 127.0.0.1:${PG_PORT} y nginx le hace proxy por loopback.
 # - jarvis-worker (ADR-016) no publica nada: solo sale hacia PostgreSQL (127.0.0.1) y las URLs de su allowlist.
 #   Lee los backups cifrados en solo lectura para verificarlos.
+# - Las cadenas de conexión desactivan GSS (Kerberos): la imagen chiseled no trae libgssapi y PostgreSQL va por
+#   contraseña en 127.0.0.1.
 # - mosquitto publica 8883 (TLS, devices) a Internet y 1883 solo en 127.0.0.1 (cloud client).
 name: jarvis
 
@@ -28,10 +31,11 @@ services:
     cap_drop: [ALL]
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://127.0.0.1:8080;http://127.0.0.1:8081
-      ConnectionStrings__Postgres: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_app;Password_File=/run/secrets/db_app_password
-      ConnectionStrings__PostgresMigrator: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_migrator;Password_File=/run/secrets/db_migrator_password
-      ConnectionStrings__PostgresMaintenance: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_maintenance;Password_File=/run/secrets/db_maintenance_password
+      ASPNETCORE_URLS: http://127.0.0.1:${JARVIS_API_PORT:-8080};http://127.0.0.1:${JARVIS_METRICS_PORT:-8081}
+      Jarvis__MetricsPort: "${JARVIS_METRICS_PORT:-8081}"
+      ConnectionStrings__Postgres: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_app;Password_File=/run/secrets/db_app_password;GSS Encryption Mode=Disable
+      ConnectionStrings__PostgresMigrator: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_migrator;Password_File=/run/secrets/db_migrator_password;GSS Encryption Mode=Disable
+      ConnectionStrings__PostgresMaintenance: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_maintenance;Password_File=/run/secrets/db_maintenance_password;GSS Encryption Mode=Disable
       Jwt__SigningKeyFile: /run/secrets/jwt_signing_key
       Jarvis__DeviceSecretPepperFile: /run/secrets/device_secret_pepper
       Jarvis__PublicBaseUrl: https://${JARVIS_DOMAIN:?JARVIS_DOMAIN is required}
@@ -44,7 +48,7 @@ services:
       Jarvis__Mqtt__InstanceId: api-1
     secrets: [db_app_password, db_migrator_password, db_maintenance_password, jwt_signing_key, device_secret_pepper, mqtt_cloud_password]
     healthcheck:
-      test: ["CMD", "/app/jarvis-api", "healthcheck", "--url", "http://127.0.0.1:8080/health/ready"]
+      test: ["CMD", "/app/jarvis-api", "healthcheck", "--url", "http://127.0.0.1:${JARVIS_API_PORT:-8080}/health/ready"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -66,11 +70,11 @@ services:
     group_add: ["${BACKUP_READER_GID:-1654}"]
     environment:
       DOTNET_ENVIRONMENT: Production
-      ConnectionStrings__Postgres: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_worker;Password_File=/run/secrets/db_worker_password
+      ConnectionStrings__Postgres: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_worker;Password_File=/run/secrets/db_worker_password;GSS Encryption Mode=Disable
       Jarvis__Worker__BackupDirectory: /backups
       Jarvis__Worker__HeartbeatPath: /tmp/jarvis-worker.alive
       # Allowlist de http.check: los jobs solo pueden nombrar una de estas claves, nunca una URL.
-      Jarvis__Worker__HttpChecks__api: http://127.0.0.1:8080/health/ready
+      Jarvis__Worker__HttpChecks__api: http://127.0.0.1:${JARVIS_API_PORT:-8080}/health/ready
     volumes:
       - ${BACKUP_DIR:-/opt/jarvis/backups}:/backups:ro
     secrets: [db_worker_password]

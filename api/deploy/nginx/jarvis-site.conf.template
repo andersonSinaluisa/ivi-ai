@@ -12,7 +12,7 @@ log_format jarvis_json escape=json '{"time":"$time_iso8601","ip":"$remote_addr",
 
 map $http_upgrade $jarvis_connection_upgrade { default upgrade; '' close; }
 
-upstream jarvis_api { server 127.0.0.1:8080; keepalive 16; }
+upstream jarvis_api { server 127.0.0.1:__JARVIS_API_PORT__; keepalive 16; }
 
 server {
   listen 80;

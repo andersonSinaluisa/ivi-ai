@@ -15,7 +15,7 @@
 #   4. Certificado Let's Encrypt (webroot, vía el nginx del host) + copia para Mosquitto
 #   5. Mosquitto (Docker) + bootstrap de Dynamic Security (solo la primera vez)
 #   6. Imágenes de la API y del worker + migraciones (rol jarvis_migrator; solo aditivas, ver runbooks.md)
-#   7. jarvis-api (Docker, red del host, 127.0.0.1:8080) + readiness; jarvis-worker + healthcheck
+#   7. jarvis-api (Docker, red del host, 127.0.0.1:$JARVIS_API_PORT) + readiness; jarvis-worker + healthcheck
 #   8. Sitio nginx nativo (nginx -t antes de recargar)
 #   9. Hook de renovación de certbot
 #  10. Owner inicial (opcional, contraseña por teclado)
@@ -58,7 +58,9 @@ STATE_DIR="${STATE_DIR:-/opt/jarvis/state}"
 PG_PORT="${PG_PORT:-5432}"
 PG_DATABASE="${PG_DATABASE:-jarvis}"
 CERTBOT_WEBROOT="${CERTBOT_WEBROOT:-/var/www/certbot}"
-export SECRETS_DIR CONFIG_DIR PG_PORT PG_DATABASE JARVIS_DOMAIN
+JARVIS_API_PORT="${JARVIS_API_PORT:-8080}"
+JARVIS_METRICS_PORT="${JARVIS_METRICS_PORT:-8081}"
+export SECRETS_DIR CONFIG_DIR PG_PORT PG_DATABASE JARVIS_DOMAIN JARVIS_API_PORT JARVIS_METRICS_PORT
 
 compose() { docker compose --project-directory "$DEPLOY_DIR" -f "$DEPLOY_DIR/docker-compose.yml" --env-file "$ENV_FILE" "$@"; }
 psql_su() { sudo -u postgres psql -X -q -v ON_ERROR_STOP=1 -p "$PG_PORT" "$@"; }
@@ -83,9 +85,10 @@ log "2/10 Secretos en $SECRETS_DIR"
 sh "$DEPLOY_DIR/scripts/generate-secrets.sh" "$SECRETS_DIR" | sed 's/^/    /'
 install -d -m 0700 "$CONFIG_DIR" "$STATE_DIR"
 # Docker Compose monta los secretos de archivo con los permisos del host, y las imágenes .NET corren como UID/GID 1654
-# (no root): los que leen la API y el worker pasan a root:1654 0440. El resto sigue 0400 root.
+# (no root): los que leen la API y el worker pasan a root:1654 0440. mosquitto_dynsec_admin_password también, porque
+# `jarvis-api broker-bootstrap` lo lee la primera vez (después ese usuario admin se borra). El resto sigue 0400 root.
 APP_GID="${BACKUP_READER_GID:-1654}"
-for s in db_app_password db_migrator_password db_maintenance_password db_worker_password jwt_signing_key device_secret_pepper mqtt_cloud_password; do
+for s in db_app_password db_migrator_password db_maintenance_password db_worker_password jwt_signing_key device_secret_pepper mqtt_cloud_password mosquitto_dynsec_admin_password; do
   chgrp "$APP_GID" "$SECRETS_DIR/$s"
   chmod 0440 "$SECRETS_DIR/$s"
 done
@@ -150,7 +153,7 @@ server {
 }
 EOF
   else
-    sed "s/__JARVIS_DOMAIN__/$JARVIS_DOMAIN/g" "$DEPLOY_DIR/nginx/jarvis-site.conf.template" > "$tmp"
+    sed -e "s/__JARVIS_DOMAIN__/$JARVIS_DOMAIN/g" -e "s/__JARVIS_API_PORT__/$JARVIS_API_PORT/g" "$DEPLOY_DIR/nginx/jarvis-site.conf.template" > "$tmp"
     # `http2 on;` existe desde nginx 1.25.1; Ubuntu 22.04/24.04 traen 1.18/1.24: ahí va en `listen ... ssl http2`.
     if ! nginx_at_least 1.25.1; then
       sed -i -e '/^[[:space:]]*http2 on;/d' -e 's/^\([[:space:]]*listen [^;]*443 ssl\);/\1 http2;/' "$tmp"
@@ -211,12 +214,21 @@ compose run --rm --no-deps jarvis-api migrate | sed 's/^/    /'
 
 # ---------------------------------------------------------------------------------------------------------------------
 log "7/10 jarvis-api"
+# Los puertos deben estar libres (salvo que ya los use nuestro propio jarvis-api de un despliegue anterior).
+if [ -z "$(compose ps -q --status running jarvis-api 2>/dev/null)" ]; then
+  for port in "$JARVIS_API_PORT" "$JARVIS_METRICS_PORT"; do
+    if ss -tlnH "sport = :$port" 2>/dev/null | grep -q .; then
+      ss -tlnpH "sport = :$port" 2>/dev/null | sed 's/^/    en uso: /' >&2
+      die "Port $port is already in use by another service. Set JARVIS_API_PORT / JARVIS_METRICS_PORT in deploy/.env to free ports (e.g. 8090/8091) and run deploy.sh again."
+    fi
+  done
+fi
 compose up -d jarvis-api
 for _ in $(seq 1 45); do
-  if curl -fsS --max-time 3 http://127.0.0.1:8080/health/ready >/tmp/jarvis-ready.json 2>/dev/null; then break; fi
+  if curl -fsS --max-time 3 http://127.0.0.1:$JARVIS_API_PORT/health/ready >/tmp/jarvis-ready.json 2>/dev/null; then break; fi
   sleep 2
 done
-curl -fsS --max-time 3 http://127.0.0.1:8080/health/ready >/tmp/jarvis-ready.json 2>/dev/null || die "jarvis-api not ready: docker compose logs jarvis-api"
+curl -fsS --max-time 3 http://127.0.0.1:$JARVIS_API_PORT/health/ready >/tmp/jarvis-ready.json 2>/dev/null || die "jarvis-api not ready: docker compose logs jarvis-api"
 ok "ready: $(cat /tmp/jarvis-ready.json)"
 install -d -m 0750 -g "$APP_GID" "${BACKUP_DIR:-/opt/jarvis/backups}"
 compose up -d jarvis-worker
@@ -262,6 +274,6 @@ else
 fi
 
 log "Despliegue completo"
-echo "    API:   https://$JARVIS_DOMAIN/api/v1   (local: http://127.0.0.1:8080)"
+echo "    API:   https://$JARVIS_DOMAIN/api/v1   (local: http://127.0.0.1:$JARVIS_API_PORT)"
 echo "    MQTT:  mqtts://$JARVIS_DOMAIN:8883"
 echo "    Logs:  docker compose -f $DEPLOY_DIR/docker-compose.yml logs -f jarvis-api"

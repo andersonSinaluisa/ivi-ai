@@ -48,4 +48,4 @@ Implementación: el paso 1 lo hace `deploy/mosquitto/docker-entrypoint.sh` al cr
 
 Compose monta los secretos de archivo con los permisos del host y las imágenes .NET se ejecutan como UID/GID 1654
 (no root). `deploy.sh` deja los secretos que leen `jarvis-api` y `jarvis-worker` como `root:1654 0440`; el resto
-(`postgres_password`, `db_backup_password`, `mosquitto_dynsec_admin_password`) sigue `root 0400`.
+(`postgres_password`, `db_backup_password`) sigue `root 0400`. `mosquitto_dynsec_admin_password` también es `root:1654 0440` porque `broker-bootstrap` (imagen de la API) lo lee en el primer despliegue.
