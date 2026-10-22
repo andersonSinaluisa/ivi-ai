@@ -20,7 +20,8 @@ from .config.settings import VoiceSettings, load_settings
 from .engine.events import EventBus
 from .engine.voice_engine import VoiceEngine
 from .speakers.profiles import SpeakerProfileStore
-from .stt.whisper import FasterWhisperStt, SttProvider
+from .stt.remote import RemoteStt, read_token
+from .stt.whisper import FasterWhisperStt, SttProvider, local_model_dir
 from .tts.base import FallbackTts, SilentTts, TtsCache, TtsProvider
 from .tts.openvoice import OpenVoiceTts
 from .tts.sapi import SapiTts
@@ -49,8 +50,19 @@ def build_tts_chain(settings: VoiceSettings) -> FallbackTts:
     return FallbackTts(primary, fallback)
 
 
-def build_stt(settings: VoiceSettings) -> SttProvider:
-    return FasterWhisperStt(settings.whisper_model, settings.whisper_device, settings.whisper_compute_type)
+def build_stt(settings: VoiceSettings, base_dir: Path | None = None) -> SttProvider:
+    local = FasterWhisperStt(settings.whisper_model, settings.whisper_device, settings.whisper_compute_type)
+    if settings.stt_provider != "remote":
+        return local
+    # Respaldo solo si el modelo ya está copiado en models/whisper/<modelo>/: nunca descarga en silencio.
+    has_local = local_model_dir(settings.whisper_model, service_root() / "models" / "whisper") is not None
+    return RemoteStt(
+        settings.stt_remote_url,
+        read_token(base_dir),
+        settings.whisper_model,
+        settings.stt_remote_timeout_s,
+        fallback=local if has_local else None,
+    )
 
 
 @dataclass
@@ -85,7 +97,7 @@ def build_components(
     ok, _ = audio_available()
     engine = VoiceEngine(
         settings=settings,
-        stt=stt or build_stt(settings),
+        stt=stt or build_stt(settings, base),
         tts=tts or build_tts_chain(settings),
         detector=detector or build_detector(settings.wake_word_enabled, settings.wake_word_model),
         audio_in=audio_in or SoundDeviceInput(settings.input_device),

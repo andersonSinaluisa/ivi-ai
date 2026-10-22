@@ -1,0 +1,29 @@
+# jarvis-stt (opcional): transcripción de voz en el VPS. Proyecto compose propio, separado del Cloud Core.
+#   cd /opt/jarvis/compose/deploy/optional/stt && sudo docker compose up -d --build
+# Escucha SOLO en 127.0.0.1:9100 (red del host); nginx lo publica en /stt/ con token (nginx/extra/stt.conf.example).
+name: jarvis-stt
+
+services:
+  jarvis-stt:
+    build: .
+    image: jarvis-stt:local
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}      # tiny | base | small (en CPU, small ya es lento)
+      WHISPER_THREADS: ${WHISPER_THREADS:-2}
+    volumes:
+      - stt-models:/models                       # el modelo se descarga una vez y se conserva
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: ${STT_MEM_LIMIT:-1500m}
+    cpus: ${STT_CPUS:-2.0}
+    pids_limit: 100
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  stt-models:

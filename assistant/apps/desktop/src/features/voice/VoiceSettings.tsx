@@ -116,6 +116,103 @@ function NewVoiceForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
+/** Dónde se transcribe la voz: en esta PC o en el servidor (jarvis-stt del VPS). */
+export function TranscriptionSettings({ config, onChange }: { config: VoiceConfig; onChange: (c: VoiceConfig) => void }) {
+  const api = useVoice((s) => s.api);
+  const [url, setUrl] = useState(config.stt_remote_url);
+  const [token, setToken] = useState("");
+  const [message, setMessage] = useState<{ tone: "info" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const remote = config.stt_provider === "remote";
+
+  const run = async (action: () => Promise<string | void>) => {
+    if (!api) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const text = await action();
+      if (text) setMessage({ tone: "info", text });
+    } catch (e) {
+      setMessage({ tone: "error", text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = () =>
+    run(async () => {
+      if (!api) return;
+      let next = await api.updateConfig({ stt_provider: "remote", stt_remote_url: url.trim() });
+      if (token.trim()) next = await api.setRemoteSttToken(token.trim());
+      onChange(next);
+      setToken("");
+      const check = await api.checkStt();
+      if (!check.ok) throw new Error(check.detail);
+      return `Servidor listo: ${check.detail}`;
+    });
+
+  return (
+    <div className="mt-2 rounded-xl border border-tide p-3" role="group" aria-label="Transcripción">
+      <div className="flex items-center gap-3 py-1">
+        <span className="w-[200px] text-sm text-ice">Transcripción</span>
+        <span className="flex gap-2" role="radiogroup" aria-label="Dónde se transcribe">
+          {[
+            { id: "faster-whisper", label: "En esta PC" },
+            { id: "remote", label: "En el servidor" },
+          ].map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={config.stt_provider === o.id}
+              disabled={busy || (o.id === "remote" && !config.stt_remote_url)}
+              onClick={() => void run(async () => {
+                if (!api) return;
+                onChange(await api.updateConfig({ stt_provider: o.id }));
+                return o.id === "remote" ? "Se transcribe en el servidor." : "Se transcribe en esta PC.";
+              })}
+              className={`rounded-lg border px-3 py-1.5 text-sm ${config.stt_provider === o.id ? "border-cyan bg-cyan/10 text-ice" : "border-tide text-mist hover:text-ice"} disabled:opacity-40`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </span>
+      </div>
+      <p className="pb-2 text-xs text-mist">
+        El micrófono y la detección de frases siguen en esta PC; con «En el servidor» solo se envía el audio de cada frase por HTTPS.
+        {remote && " Si el servidor no responde y hay un modelo copiado en models\\whisper, se usa el local."}
+      </p>
+      <Row label="URL del servidor">
+        <input className={input} placeholder="https://jarvis.tu-dominio/stt" value={url} onChange={(e) => setUrl(e.target.value)} />
+      </Row>
+      <Row label="Token">
+        <input
+          className={input}
+          type="password"
+          autoComplete="off"
+          placeholder={config.stt_remote_token_set ? "•••••• (guardado)" : "el de /etc/nginx/jarvis-extra/stt.conf"}
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+        />
+      </Row>
+      {message && <Notice tone={message.tone}>{message.text}</Notice>}
+      <div className="mt-2 flex gap-2">
+        <Button tone="primary" disabled={busy || !url.trim()} onClick={() => void save()}>
+          Guardar y usar el servidor
+        </Button>
+        <Button disabled={busy} onClick={() => void run(async () => {
+          if (!api) return;
+          const check = await api.checkStt();
+          if (!check.ok) throw new Error(check.detail);
+          return check.detail;
+        })}>
+          Probar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function VoiceSettings() {
   const { api, connection, unavailableReason } = useVoice();
   const [config, setConfig] = useState<VoiceConfig | null>(null);
@@ -184,6 +281,7 @@ export function VoiceSettings() {
           <Row label="Velocidad">
             <input type="number" min={0.5} max={2} step={0.1} className={input} value={config.tts_speed} onChange={(e) => void update({ tts_speed: Number(e.target.value) })} />
           </Row>
+          <TranscriptionSettings config={config} onChange={setConfig} />
           <Row label="Modelo de transcripción">
             <select className={input} value={config.whisper_model} onChange={(e) => void update({ whisper_model: e.target.value })}>
               {["tiny", "base", "small", "medium"].map((m) => (

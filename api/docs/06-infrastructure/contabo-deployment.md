@@ -135,3 +135,32 @@ de Jarvis con TLS y un token, nunca abriendo el puerto 11434:
 
 Sin GPU, Qwen en el VPS responde despacio (`qwen3:4b` en CPU: varios segundos por respuesta) y compite por RAM con
 PostgreSQL. Los embeddings de la memoria siguen calculándose en la PC; sin Ollama local la memoria usa búsqueda léxica.
+
+## Transcripción de voz en el VPS (opcional)
+
+`jarvis-stt` (`deploy/optional/stt/`) es un servicio aparte del Cloud Core —igual que Ollama— con faster-whisper en
+CPU. El escritorio sigue capturando el micrófono y detectando las frases; solo envía el audio de cada frase (WAV de
+16 kHz) por HTTPS con un token. Útil si la PC no puede descargar el modelo o es lenta.
+
+```bash
+cd /opt/jarvis/compose/deploy/optional/stt
+sudo docker compose up -d --build                 # descarga el modelo la primera vez (base ≈ 145 MB)
+curl -s http://127.0.0.1:9100/health; echo        # {"status":"ok","model":"base","ready":true,...}
+
+STT_TOKEN=$(openssl rand -hex 32); echo "$STT_TOKEN"
+sed "s/__TOKEN__/$STT_TOKEN/" ../../nginx/extra/stt.conf.example | sudo tee /etc/nginx/jarvis-extra/stt.conf >/dev/null
+sudo chmod 0640 /etc/nginx/jarvis-extra/stt.conf
+sudo nginx -t && sudo systemctl reload nginx
+curl -H "Authorization: Bearer $STT_TOKEN" https://<dominio>/stt/health
+```
+
+En la app: Configuración → Voz → Transcripción → URL `https://<dominio>/stt`, el token → «Guardar y usar el servidor».
+El token se guarda en `%LOCALAPPDATA%\Jarvis\secrets\stt-remote-token`, nunca en `voice.json`.
+
+| Variable (`.env` junto a `compose.yml`) | Por defecto | Notas |
+|---|---|---|
+| `WHISPER_MODEL` | `base` | `tiny` más rápido; `small` más preciso y ~3× más lento en CPU |
+| `WHISPER_THREADS` | `2` | Hilos de CPU por transcripción (las peticiones se atienden de una en una) |
+| `STT_MEM_LIMIT` / `STT_CPUS` | `1500m` / `2.0` | Para que no compita con PostgreSQL ni con otros servicios |
+
+Privacidad: el audio de cada frase sale de la PC hacia tu VPS (cifrado en tránsito); el servidor no lo guarda.

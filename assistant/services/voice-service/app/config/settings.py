@@ -30,7 +30,10 @@ class VoiceSettings(BaseModel):
     volume: float = Field(0.9, ge=0.0, le=1.0)
     listening_enabled: bool = True
 
+    #: "faster-whisper" (en esta PC) o "remote" (servidor jarvis-stt; el token va aparte, en secrets/).
     stt_provider: str = "faster-whisper"
+    stt_remote_url: str = ""
+    stt_remote_timeout_s: float = Field(60.0, ge=5.0, le=300.0)
     whisper_model: str = "base"
     whisper_device: str = "auto"
     whisper_compute_type: str = "auto"
@@ -71,6 +74,22 @@ class VoiceSettings(BaseModel):
             raise ValueError("motor de voz desconocido")
         return v
 
+    @field_validator("stt_provider")
+    @classmethod
+    def _known_stt(cls, v: str) -> str:
+        if v not in {"faster-whisper", "remote"}:
+            raise ValueError("motor de transcripción desconocido (faster-whisper o remote)")
+        return v
+
+    @field_validator("stt_remote_url")
+    @classmethod
+    def _remote_url(cls, v: str) -> str:
+        if not v.strip():
+            return ""
+        from ..stt.remote import validate_url
+
+        return validate_url(v)
+
     @field_validator("whisper_model")
     @classmethod
     def _known_whisper(cls, v: str) -> str:
@@ -101,6 +120,8 @@ MUTABLE_FIELDS = {
     "tts_provider",
     "tts_speed",
     "whisper_model",
+    "stt_provider",
+    "stt_remote_url",
     "wake_word_enabled",
     "wake_word_threshold",
     "vad_min_rms",

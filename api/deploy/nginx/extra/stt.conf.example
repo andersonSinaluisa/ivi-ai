@@ -1,0 +1,13 @@
+# jarvis-stt (transcripción de voz) publicado por nginx con TLS y token (opcional).
+# Instalar:  sudo install -m 0640 stt.conf.example /etc/nginx/jarvis-extra/stt.conf  y sustituir __TOKEN__
+#            por:  openssl rand -hex 32   (puede ser distinto del de Ollama)
+# En la app: Configuración → Voz → Transcripción «Servidor», URL https://<dominio>/stt, token.
+location ^~ /stt/ {
+  if ($http_authorization != "Bearer __TOKEN__") { return 401; }
+  limit_req zone=jarvis_api burst=10 nodelay;
+  limit_req_status 429;
+  client_max_body_size 10m;          # ~5 min de WAV a 16 kHz; el servidor limita a 120 s
+  proxy_set_header Authorization "";
+  proxy_read_timeout 120s;
+  proxy_pass http://127.0.0.1:9100/;
+}

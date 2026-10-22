@@ -6,6 +6,7 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Protocol
 
 import numpy as np
@@ -50,8 +51,41 @@ def _default_factory(model: str, device: str, compute_type: str) -> Any:  # prag
     if compute_type == "auto":
         compute_type = "float16" if device == "cuda" else "int8"
     root = service_root() / "models" / "whisper"
+    local = local_model_dir(model, root)
+    if local is not None:
+        log.info("cargando faster-whisper %s desde %s en %s (%s)", model, local, device, compute_type)
+        return WhisperModel(str(local), device=device, compute_type=compute_type)
     log.info("cargando faster-whisper %s en %s (%s)", model, device, compute_type)
     return WhisperModel(model, device=device, compute_type=compute_type, download_root=str(root))
+
+
+MODEL_FILES = ("model.bin", "config.json", "tokenizer.json", "vocabulary.txt")
+
+
+def local_model_dir(model: str, root: Path) -> Path | None:
+    """Modelo copiado a mano en ``models/whisper/<modelo>/`` (sin Internet o si Hugging Face no es accesible).
+
+    Son los archivos de ``Systran/faster-whisper-<modelo>`` tal cual; si falta alguno se ignora la carpeta.
+    """
+    folder = root / model
+    if all((folder / name).is_file() for name in MODEL_FILES):
+        return folder
+    return None
+
+
+def load_error_hint(exc: Exception) -> str:
+    """Mensaje accionable según la causa (red frente a paquete ausente)."""
+    text = str(exc)
+    if isinstance(exc, ImportError):
+        return "Instala el extra [stt] (scripts\\setup.ps1)."
+    network = ("SSL", "ConnectError", "Connection", "timed out", "snapshot folder", "Hub", "proxy")
+    if any(word in text for word in network):
+        return (
+            "No se pudo descargar el modelo desde Hugging Face. Copia los archivos "
+            f"{', '.join(MODEL_FILES)} en services/voice-service/models/whisper/<modelo>/ "
+            "o define HF_ENDPOINT con un espejo."
+        )
+    return "Revisa el modelo configurado."
 
 
 class FasterWhisperStt:
@@ -90,7 +124,7 @@ class FasterWhisperStt:
                 self._model = self._factory(*self._args)
                 self._error = None
             except Exception as exc:  # noqa: BLE001
-                self._error = f"no se pudo cargar faster-whisper ({exc}). Instala el extra [stt]."
+                self._error = f"no se pudo cargar faster-whisper ({exc}). {load_error_hint(exc)}"
                 log.error(self._error)
                 raise
 

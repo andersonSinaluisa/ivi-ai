@@ -9,6 +9,11 @@ export interface VoiceConfig {
   tts_provider: string;
   tts_speed: number;
   whisper_model: string;
+  /** "faster-whisper" (en esta PC) o "remote" (servidor jarvis-stt). */
+  stt_provider: string;
+  stt_remote_url: string;
+  /** El token nunca se devuelve: solo si está guardado. */
+  stt_remote_token_set: boolean;
   wake_word_enabled: boolean;
   [key: string]: unknown;
 }
@@ -46,6 +51,14 @@ export class VoiceApi {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
+  /** Guarda el token del servidor de transcripción (vacío lo borra). */
+  setRemoteSttToken = (token: string) =>
+    this.req<VoiceConfig>("/stt/remote-token", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+  checkStt = () => this.req<{ ok: boolean; provider: string; detail: string }>("/stt/check", { method: "POST" });
   voices = () => this.req<VoiceProfile[]>("/voices");
   activateVoice = (id: string | null) =>
     this.req<VoiceProfile[]>("/voices/active", {

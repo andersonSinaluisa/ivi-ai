@@ -51,3 +51,24 @@ def test_real_model_on_silence():  # pragma: no cover - requiere el modelo desca
     stt = FasterWhisperStt("tiny")
     t = stt.transcribe(np.zeros(16_000, np.float32), "es")
     assert isinstance(t.text, str)
+
+
+def test_local_model_folder_is_used_only_when_complete(tmp_path):
+    from app.stt.whisper import MODEL_FILES, local_model_dir
+
+    folder = tmp_path / "base"
+    folder.mkdir()
+    for name in MODEL_FILES[:-1]:
+        (folder / name).write_bytes(b"x")
+    assert local_model_dir("base", tmp_path) is None
+    (folder / MODEL_FILES[-1]).write_bytes(b"x")
+    assert local_model_dir("base", tmp_path) == folder
+    assert local_model_dir("small", tmp_path) is None
+
+
+def test_load_error_explains_network_failures():
+    from app.stt.whisper import load_error_hint
+
+    ssl = Exception("ConnectError: [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failure")
+    assert "models/whisper" in load_error_hint(ssl)
+    assert "[stt]" in load_error_hint(ImportError("No module named 'faster_whisper'"))

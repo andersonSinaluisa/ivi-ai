@@ -34,6 +34,7 @@ def require_auth(
     return c
 
 
+from ..stt.remote import read_token, write_token
 from ..tts.vibevoice import vibevoice_status
 
 Auth = Annotated[Any, Depends(require_auth)]
@@ -66,7 +67,36 @@ def devices(c: Auth) -> list[dict]:  # noqa: ARG001
 
 @router.get("/config")
 def get_config(c: Auth) -> dict:
-    return c.settings.model_dump(exclude={"allowed_origins", "host", "port", "allow_remote"})
+    data = c.settings.model_dump(exclude={"allowed_origins", "host", "port", "allow_remote"})
+    data["stt_remote_token_set"] = read_token(c.base_dir) is not None  # el token nunca sale de la PC por la API
+    return data
+
+
+class RemoteTokenBody(BaseModel):
+    #: Vacío borra el token.
+    token: str = Field(default="", max_length=512)
+
+
+@router.put("/stt/remote-token")
+def put_remote_token(c: Auth, body: RemoteTokenBody) -> dict:
+    write_token(body.token.strip() or None, c.base_dir)
+    from ..main import build_stt
+
+    c.engine.reconfigure(c.settings, stt=build_stt(c.settings, c.base_dir))
+    return get_config(c)
+
+
+@router.post("/stt/check")
+async def check_stt(c: Auth) -> dict:
+    """Comprueba el motor de transcripción actual (para «Probar» en Configuración)."""
+    stt = c.engine.stt
+    try:
+        if hasattr(stt, "load"):
+            await asyncio.to_thread(stt.load)
+        ok = bool(stt.ready)
+    except Exception:  # noqa: BLE001
+        ok = False
+    return {"ok": ok, "provider": stt.name, "detail": stt.detail}
 
 
 @router.put("/config")
@@ -81,10 +111,10 @@ def put_config(c: Auth, patch: dict[str, Any]) -> dict:
         kwargs["audio_in"] = SoundDeviceInput(new.input_device)
     if new.output_device != old.output_device and audio_available()[0]:
         kwargs["audio_out"] = SoundDeviceOutput(new.output_device)
-    if new.whisper_model != old.whisper_model:
+    if (new.whisper_model, new.stt_provider, new.stt_remote_url) != (old.whisper_model, old.stt_provider, old.stt_remote_url):
         from ..main import build_stt
 
-        kwargs["stt"] = build_stt(new)
+        kwargs["stt"] = build_stt(new, c.base_dir)
     if new.tts_provider != old.tts_provider or new.vibevoice_command != old.vibevoice_command or new.vibevoice_voice != old.vibevoice_voice:
         from ..main import build_tts_chain
 
