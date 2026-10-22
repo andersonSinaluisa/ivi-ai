@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Jarvis.Api/Jarvis.Api.csproj" />
+    <Project Path="src/Jarvis.Application/Jarvis.Application.csproj" />
+    <Project Path="src/Jarvis.Contracts/Jarvis.Contracts.csproj" />
+    <Project Path="src/Jarvis.Domain/Jarvis.Domain.csproj" />
+    <Project Path="src/Jarvis.Infrastructure/Jarvis.Infrastructure.csproj" />
+    <Project Path="src/Jarvis.Worker/Jarvis.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Jarvis.Application.Tests/Jarvis.Application.Tests.csproj" />
+    <Project Path="tests/Jarvis.Domain.Tests/Jarvis.Domain.Tests.csproj" />
+    <Project Path="tests/Jarvis.E2ETests/Jarvis.E2ETests.csproj" />
+    <Project Path="tests/Jarvis.IntegrationTests/Jarvis.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Jarvis.Simulators/Jarvis.Simulators.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,79 @@
+﻿{
+    "id":  "01a0cf03-a062-7b3f-9d54-a2ba952f22b4",
+    "type":  "OPEN_APP",
+    "status":  "Completed",
+    "payload":  {
+                    "appId":  "notepad"
+                },
+    "requestedBy":  {
+                        "type":  "User",
+                        "id":  "201ba35b-7499-4d8e-b9a8-22023e677297"
+                    },
+    "sourceDeviceId":  null,
+    "targetDeviceId":  "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08",
+    "correlationId":  "01a0cf03-a062-799b-a44f-61a12353f6ea",
+    "idempotencyKey":  null,
+    "attemptCount":  1,
+    "expiresAt":  "2026-09-23T16:10:16.514717+00:00",
+    "maxDurationSeconds":  60,
+    "createdAt":  "2026-09-23T16:05:16.514717+00:00",
+    "dispatchedAt":  "2026-09-23T16:05:16.526975+00:00",
+    "deliveredAt":  "2026-09-23T16:05:16.591002+00:00",
+    "startedAt":  "2026-09-23T16:05:16.607205+00:00",
+    "completedAt":  "2026-09-23T16:05:16.724964+00:00",
+    "cancelRequestedAt":  null,
+    "progress":  null,
+    "result":  {
+                   "tool":  "open_app",
+                   "error":  null,
+                   "output":  {
+                                  "appId":  "notepad",
+                                  "action":  "none",
+                                  "processId":  35504,
+                                  "alreadyRunning":  true
+                              },
+                   "schema":  "jarvis.tool-result/1",
+                   "outcome":  "SUCCEEDED",
+                   "metadata":  {
+                                    "decision":  "APPROVED",
+                                    "invokedBy":  "cloud",
+                                    "riskLevel":  "R2"
+                                },
+                   "execution":  {
+                                     "status":  "SUCCEEDED",
+                                     "details":  {
+                                                     "method":  "already_running"
+                                                 },
+                                     "durationMs":  65
+                                 },
+                   "startedAt":  "2026-09-23T16:05:16.550Z",
+                   "truncated":  false,
+                   "durationMs":  163,
+                   "finishedAt":  "2026-09-23T16:05:16.713Z",
+                   "executionId":  "01a0cf03-a084-7470-ad29-2ca481e5b664",
+                   "toolVersion":  "1.0.0",
+                   "verification":  {
+                                        "checks":  [
+                                                       {
+                                                           "name":  "process_running",
+                                                           "passed":  true,
+                                                           "observed":  {
+                                                                            "processCount":  1
+                                                                        }
+                                                       },
+                                                       {
+                                                           "name":  "top_level_window_visible",
+                                                           "passed":  true,
+                                                           "observed":  {
+                                                                            "pid":  35504
+                                                                        }
+                                                       }
+                                                   ],
+                                        "method":  "process_and_window",
+                                        "status":  "PASSED",
+                                        "durationMs":  97
+                                    }
+               },
+    "error":  null,
+    "signature":  null
+}

@@ -1,0 +1,7 @@
+{
+  "name": "@jarvis/agent-protocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JSON Schema de los eventos del agente y del WebSocket de voz.",
+  "files": ["schemas"]
+}

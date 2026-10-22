@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "get_current_time",
+  "description": "Devuelve la fecha y hora actuales de la computadora, con zona horaria.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}

@@ -1,0 +1,104 @@
+﻿{
+    "RunAt":  "2026-09-23T11:05:36.8180695-05:00",
+    "ApiBase":  "http://127.0.0.1:8080",
+    "DeviceId":  "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08",
+    "AgentExe":  "C:\\Users\\AndersonJavierSinalu\\Documents\\.p\\ivi\\windows-agent\\target\\debug\\jarvis-agent.exe",
+    "Results":  [
+                    {
+                        "Id":  "WIN-E2E-01",
+                        "Title":  "Tarea valida open_app",
+                        "Status":  "PASS",
+                        "Detail":  "status=Completed outcome=SUCCEEDED verification=PASSED"
+                    },
+                    {
+                        "Id":  "WIN-E2E-02",
+                        "Title":  "Tarea invalida",
+                        "Status":  "PASS",
+                        "Detail":  "Failed/INVALID_PAYLOAD Failed/INVALID_PAYLOAD Failed/INVALID_PAYLOAD"
+                    },
+                    {
+                        "Id":  "WIN-E2E-03",
+                        "Title":  "Tarea duplicada",
+                        "Status":  "PASS",
+                        "Detail":  "100 publicaciones -\u003e 1 ejecucion(es), 49 duplicados respondidos con el ultimo estado"
+                    },
+                    {
+                        "Id":  "WIN-E2E-04",
+                        "Title":  "Device revocado",
+                        "Status":  "PASS",
+                        "Detail":  "authRejected=True reonline=True (sin reiniciar el agente)"
+                    },
+                    {
+                        "Id":  "WIN-E2E-05",
+                        "Title":  "Permiso denegado",
+                        "Status":  "PASS",
+                        "Detail":  "status=Failed code=NOT_PERMITTED"
+                    },
+                    {
+                        "Id":  "WIN-E2E-06",
+                        "Title":  "Tool inexistente",
+                        "Status":  "PASS",
+                        "Detail":  "el Cloud lo rechaza antes de despachar (HTTP 422)"
+                    },
+                    {
+                        "Id":  "WIN-E2E-07",
+                        "Title":  "Ejecucion fallida",
+                        "Status":  "PASS",
+                        "Detail":  "status=Failed code=APP_NOT_FOUND sinStackTrace=True"
+                    },
+                    {
+                        "Id":  "WIN-E2E-08",
+                        "Title":  "Verificacion fallida",
+                        "Status":  "PASS",
+                        "Detail":  "status=Failed code=VERIFICATION_FAILED verification="
+                    },
+                    {
+                        "Id":  "WIN-E2E-09",
+                        "Title":  "Desconexion durante la ejecucion",
+                        "Status":  "PASS",
+                        "Detail":  "status=Completed (resultado entregado tras reconectar)"
+                    },
+                    {
+                        "Id":  "WIN-E2E-10",
+                        "Title":  "Reinicio con trabajo pendiente",
+                        "Status":  "PASS",
+                        "Detail":  "status=Completed code="
+                    },
+                    {
+                        "Id":  "WIN-E2E-11",
+                        "Title":  "Cancelacion",
+                        "Status":  "PASS",
+                        "Detail":  "status=Cancelled code=USER_REQUEST"
+                    },
+                    {
+                        "Id":  "WIN-E2E-12",
+                        "Title":  "Timeout",
+                        "Status":  "PASS",
+                        "Detail":  "status=Failed code=TOOL_TIMEOUT"
+                    },
+                    {
+                        "Id":  "WIN-E2E-13",
+                        "Title":  "Aprobacion local R3",
+                        "Status":  "PASS",
+                        "Detail":  "espera=WaitingForApproval final=Completed"
+                    },
+                    {
+                        "Id":  "WIN-E2E-14",
+                        "Title":  "Alias OPEN_CHROME",
+                        "Status":  "PASS",
+                        "Detail":  "status=Completed code="
+                    },
+                    {
+                        "Id":  "WIN-E2E-15",
+                        "Title":  "Tarea firmada end-to-end",
+                        "Status":  "PASS",
+                        "Detail":  "firmada=Completed alterada=Failed/NOT_PERMITTED (SIGNATURE_INVALID: the signature does not match the message)"
+                    },
+                    {
+                        "Id":  "WIN-E2E-16",
+                        "Title":  "Aprobacion remota firmada",
+                        "Status":  "PASS",
+                        "Detail":  "espera=WaitingForApproval transmitida=True final=Completed"
+                    }
+                ]
+}

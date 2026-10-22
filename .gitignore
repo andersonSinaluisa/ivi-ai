@@ -1,0 +1,31 @@
+# Secretos: nunca en git (los de producción viven en /opt/jarvis/secrets del VPS)
+.local-secrets/
+secrets/
+*.env
+!.env.example
+*.pem
+*.key
+*.secret
+*.jarvismem
+
+# Compilación y dependencias
+bin/
+obj/
+target/
+node_modules/
+dist/
+.venv/
+__pycache__/
+.pytest_cache/
+TestResults/
+*.tsbuildinfo
+
+# Datos locales y herramientas
+*.db
+*.db-wal
+*.db-shm
+.dist/
+.qodo/
+.vs/
+.idea/
+.DS_Store

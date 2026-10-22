@@ -1,0 +1,130 @@
+{
+  "approvalDecisionSignature": {
+    "decidedAt": "2026-09-23T10:01:30.500Z",
+    "decision": "GRANTED",
+    "message": "jarvis.approval-decision/1\ntaskId=019263f0-0000-7000-8000-000000000001\ndecision=GRANTED\npayloadSha256=20afe97df3d5d973dd5c0b5784165008334ce5f362f83e18c9ef732db9f1a3be\nnonce=b6d0f1a2c3e44f5a\ndecidedAt=2026-09-23T10:01:30.500Z",
+    "nonce": "b6d0f1a2c3e44f5a",
+    "payload": {
+      "appId": "notepad",
+      "force": true
+    },
+    "payloadSha256": "20afe97df3d5d973dd5c0b5784165008334ce5f362f83e18c9ef732db9f1a3be",
+    "signature": {
+      "alg": "Ed25519",
+      "keyId": "owner-laptop-1",
+      "value": "Ndn32pUWpoB3bUkAJy4DkDhPN5YhV0at+H7CvYN0gsDKKdUkvfM9boZbEFt85VDVSr0zvk+dO+tc0mVPWib8Bg=="
+    },
+    "taskId": "019263f0-0000-7000-8000-000000000001"
+  },
+  "canonicalJson": [
+    {
+      "canonical": "{}",
+      "input": {},
+      "name": "objeto vacio",
+      "payloadSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "canonical": "{\"a\":{\"x\":[1,2],\"y\":true},\"b\":1}",
+      "input": {
+        "a": {
+          "x": [
+            1,
+            2
+          ],
+          "y": true
+        },
+        "b": 1
+      },
+      "name": "claves desordenadas y anidadas",
+      "payloadSha256": "ad46f4c4600a6fbb10cadd86f894c31d2b1a24b5fd323882a8a8dc1d3ffaa044"
+    },
+    {
+      "canonical": "{\"f\":false,\"i\":-42,\"n\":null,\"t\":true,\"z\":0}",
+      "input": {
+        "f": false,
+        "i": -42,
+        "n": null,
+        "t": true,
+        "z": 0
+      },
+      "name": "nulos, booleanos y negativos",
+      "payloadSha256": "26f69ca739dce5df38a5cb9cc83bb25618e12a7ea5110094bbd38e175ad8474c"
+    },
+    {
+      "canonical": "{\"back\":\"c\\\\d\",\"ctrl\":\"\\u0001\",\"nl\":\"a\\nb\",\"quote\":\"say \\\"hi\\\"\"}",
+      "input": {
+        "back": "c\\d",
+        "ctrl": "\u0001",
+        "nl": "a\nb",
+        "quote": "say \"hi\""
+      },
+      "name": "cadenas con escapes",
+      "payloadSha256": "2da3e273226d04e77cf8f924f1e0e6db9ef2f9502b6153c1d45f590bc0d1dd67"
+    },
+    {
+      "canonical": "{\"a\":1,\"é\":2,\"😀\":4,\"Ｚ\":3}",
+      "input": {
+        "a": 1,
+        "é": 2,
+        "Ｚ": 3,
+        "😀": 4
+      },
+      "name": "orden UTF-16 con no-ASCII",
+      "payloadSha256": "26e05f790b3ee92e67393011d8e3d59320fb25aa9247598bbfec31cba39eec9b"
+    },
+    {
+      "canonical": "{\"items\":[{\"a\":1,\"b\":2},{\"d\":[true,null]}]}",
+      "input": {
+        "items": [
+          {
+            "a": 1,
+            "b": 2
+          },
+          {
+            "d": [
+              true,
+              null
+            ]
+          }
+        ]
+      },
+      "name": "listas de objetos",
+      "payloadSha256": "08a51c4a6afdfa45a3066c558f222a9d1dc5027f7b8855ab45afde0a17a07266"
+    },
+    {
+      "canonical": "{\"appId\":\"chrome\"}",
+      "input": {
+        "appId": "chrome"
+      },
+      "name": "payload real del MVP",
+      "payloadSha256": "57e2166acf718b9424df53bbe9c85afda031422cd55a03f81cfc6655575eecec"
+    }
+  ],
+  "key": {
+    "alg": "Ed25519",
+    "keyId": "owner-laptop-1",
+    "publicKeyBase64": "6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=",
+    "seedBase64": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
+  },
+  "note": "Normativo (ADR-012). Generado por windows-agent/crates/jarvis-protocol/tests/signature_vectors.rs.",
+  "schema": "jarvis.signature-vectors/1",
+  "taskSignature": {
+    "expiresAt": "2026-09-23T10:00:00.000Z",
+    "message": "jarvis.task-signature/1\ntaskId=019263f0-0000-7000-8000-000000000001\ntype=CLOSE_APP\npayloadSha256=20afe97df3d5d973dd5c0b5784165008334ce5f362f83e18c9ef732db9f1a3be\nrequestedBy=User:019263f0-0000-7000-8000-0000000000aa\nexpiresAt=2026-09-23T10:00:00.000Z",
+    "payload": {
+      "appId": "notepad",
+      "force": true
+    },
+    "requestedBy": {
+      "id": "019263f0-0000-7000-8000-0000000000aa",
+      "type": "User"
+    },
+    "signature": {
+      "alg": "Ed25519",
+      "keyId": "owner-laptop-1",
+      "value": "b36SCqZwAvYl0SxyHCbqXb4nvbfPCE8uQGlcPh1j0BDY/mzNndPbHpg2hDItlNYBbk8xW2K6eUG7ja3mB9BvCw=="
+    },
+    "taskId": "019263f0-0000-7000-8000-000000000001",
+    "type": "CLOSE_APP"
+  }
+}

@@ -1,0 +1,223 @@
+{
+  "protocol": "jarvis.sync/1",
+  "description": "Vectores normativos de jarvis.sync/1. Los leen las pruebas del Cloud (.NET) y del escritorio (Rust): cualquier cambio de formato rompe ambas.",
+  "contentHash": [
+    { "content": "El servidor VPS usa PostgreSQL 16", "sha256": "4c496347d568ee45fc022b8cfa44569cef166b7e37d15776e33ed67ada8621e3" },
+    { "content": "Canción favorita: «Ñandú»  con espacios", "sha256": "1e28f120ae89045e38238afba6e0967aea7398cb627f8e5db1af1874a54ed21e" }
+  ],
+  "entities": {
+    "memory": {
+      "kind": "semantic",
+      "content": "El servidor VPS usa PostgreSQL 16",
+      "summary": "VPS con PostgreSQL",
+      "tags": ["infra", "vps"],
+      "relevance": 0.6,
+      "confidence": 0.9,
+      "verification": "verified",
+      "retention": { "kind": "permanent" },
+      "source": { "kind": "user", "reference": null, "label": "usuario" },
+      "createdAt": "2026-10-22T15:00:00Z",
+      "updatedAt": "2026-10-22T15:00:00Z"
+    },
+    "memoryWithDaysRetention": {
+      "kind": "episodic",
+      "content": "Reunión con el equipo de LOOP",
+      "summary": "",
+      "tags": [],
+      "relevance": 0.4,
+      "confidence": 0.7,
+      "verification": "unverified",
+      "retention": { "kind": "days", "days": 30 },
+      "source": { "kind": "conversation", "reference": "c-123", "label": "conversación" },
+      "createdAt": "2026-10-20T10:00:00Z",
+      "updatedAt": "2026-10-20T10:00:00Z"
+    },
+    "relation": {
+      "sourceId": "0192f0a0-0000-7000-8000-000000000001",
+      "targetId": "0192f0a0-0000-7000-8000-000000000002",
+      "kind": "BELONGS_TO",
+      "confidence": 0.9,
+      "provenance": "user",
+      "verified": true,
+      "note": null,
+      "createdAt": "2026-10-22T15:00:00Z"
+    },
+    "embedding": {
+      "model": "qwen3-embedding:0.6b",
+      "dims": 4,
+      "contentHash": "4c496347d568ee45fc022b8cfa44569cef166b7e37d15776e33ed67ada8621e3",
+      "vector": [0.5, 0.5, 0.5, 0.5]
+    },
+    "experience": {
+      "goal": "Abrir el bloc de notas",
+      "context": "Windows 11",
+      "plan": "open_app notepad",
+      "steps": [ { "tool": "open_app", "arguments": { "appId": "notepad" }, "ok": true, "verification": "PASSED" } ],
+      "result": "Bloc de notas abierto",
+      "evidence": [ { "window": "Sin título: Bloc de notas" } ],
+      "errors": [],
+      "procedure": "1. open_app {\"appId\":\"notepad\"}",
+      "verified": true,
+      "completed": true,
+      "occurrences": 3,
+      "signature": "6f1c8a2d6b0e8b0c3d0c1b4f7f0f5a8e7b1f2c3d4e5f60718293a4b5c6d7e8f9",
+      "createdAt": "2026-10-22T15:00:00Z"
+    },
+    "skill": {
+      "name": "Abrir el bloc de notas",
+      "description": "Abre Notepad y verifica que la ventana exista",
+      "procedure": "1. open_app {\"appId\":\"notepad\"}",
+      "status": "draft",
+      "compatibility": { "platforms": ["windows"], "requiredTools": ["open_app"] },
+      "permissions": { "maxRisk": "R1" },
+      "source": "device",
+      "experienceId": "0192f0a0-0000-7000-8000-0000000000e1",
+      "changelog": "Primera versión"
+    }
+  },
+  "pushRequest": {
+    "protocol": "jarvis.sync/1",
+    "changes": [
+      {
+        "changeId": "0192f0a0-0000-7000-8000-0000000000c1",
+        "entity": "memory",
+        "entityId": "0192f0a0-0000-7000-8000-000000000001",
+        "op": "upsert",
+        "baseVersion": null,
+        "data": {
+          "kind": "semantic",
+          "content": "El servidor VPS usa PostgreSQL 16",
+          "summary": "VPS con PostgreSQL",
+          "tags": ["infra"],
+          "relevance": 0.6,
+          "confidence": 0.9,
+          "verification": "verified",
+          "retention": { "kind": "permanent" },
+          "source": { "kind": "user", "reference": null, "label": "usuario" },
+          "createdAt": "2026-10-22T15:00:00Z",
+          "updatedAt": "2026-10-22T15:00:00Z"
+        }
+      },
+      {
+        "changeId": "0192f0a0-0000-7000-8000-0000000000c2",
+        "entity": "embedding",
+        "entityId": "0192f0a0-0000-7000-8000-000000000001",
+        "op": "upsert",
+        "baseVersion": null,
+        "data": { "model": "qwen3-embedding:0.6b", "dims": 4, "contentHash": "4c496347d568ee45fc022b8cfa44569cef166b7e37d15776e33ed67ada8621e3", "vector": [0.5, 0.5, 0.5, 0.5] }
+      },
+      {
+        "changeId": "0192f0a0-0000-7000-8000-0000000000c3",
+        "entity": "memory",
+        "entityId": "0192f0a0-0000-7000-8000-000000000009",
+        "op": "delete",
+        "baseVersion": 3,
+        "data": null
+      }
+    ]
+  },
+  "pushResponse": {
+    "results": [
+      { "changeId": "0192f0a0-0000-7000-8000-0000000000c1", "status": "applied", "entity": "memory", "entityId": "0192f0a0-0000-7000-8000-000000000001", "version": 1, "seq": 101, "replayed": false },
+      { "changeId": "0192f0a0-0000-7000-8000-0000000000c2", "status": "applied", "entity": "embedding", "entityId": "0192f0a0-0000-7000-8000-000000000001", "version": 1, "seq": 102, "replayed": false },
+      { "changeId": "0192f0a0-0000-7000-8000-0000000000c3", "status": "conflict", "entity": "memory", "entityId": "0192f0a0-0000-7000-8000-000000000009", "version": 4, "conflictId": "0192f0a0-0000-7000-8000-0000000000f1", "fields": [], "conflictKind": "delete_update", "replayed": false }
+    ],
+    "cursor": 102
+  },
+  "pullRequest": { "protocol": "jarvis.sync/1", "since": 100, "limit": 200, "embeddingModels": ["qwen3-embedding:0.6b"] },
+  "pullResponse": {
+    "changes": [
+      {
+        "seq": 101,
+        "entity": "memory",
+        "entityId": "0192f0a0-0000-7000-8000-000000000001",
+        "op": "upsert",
+        "version": 1,
+        "originDeviceId": "0192f0a0-0000-7000-8000-0000000000d1",
+        "changeId": "0192f0a0-0000-7000-8000-0000000000c1",
+        "data": {
+          "kind": "semantic",
+          "content": "El servidor VPS usa PostgreSQL 16",
+          "summary": "VPS con PostgreSQL",
+          "tags": ["infra"],
+          "relevance": 0.6,
+          "confidence": 0.9,
+          "verification": "verified",
+          "retention": { "kind": "permanent" },
+          "source": { "kind": "user", "reference": null, "label": "usuario" },
+          "createdAt": "2026-10-22T15:00:00Z",
+          "updatedAt": "2026-10-22T15:00:00Z"
+        }
+      },
+      {
+        "seq": 105,
+        "entity": "memory",
+        "entityId": "0192f0a0-0000-7000-8000-000000000003",
+        "op": "delete",
+        "version": 4,
+        "originDeviceId": "0192f0a0-0000-7000-8000-0000000000d2",
+        "changeId": "0192f0a0-0000-7000-8000-0000000000c9",
+        "data": null
+      }
+    ],
+    "nextSince": 105,
+    "hasMore": false
+  },
+  "conflict": {
+    "id": "0192f0a0-0000-7000-8000-0000000000f1",
+    "entity": "memory",
+    "entityId": "0192f0a0-0000-7000-8000-000000000001",
+    "conflictKind": "update_update",
+    "fields": ["content"],
+    "baseVersion": 1,
+    "serverVersion": 2,
+    "serverData": { "kind": "semantic", "content": "El VPS usa PostgreSQL 17", "summary": "", "tags": [], "relevance": 0.5, "confidence": 0.9, "verification": "verified", "retention": { "kind": "permanent" }, "source": { "kind": "user", "reference": null, "label": "usuario" }, "createdAt": "2026-10-22T15:00:00Z", "updatedAt": "2026-10-22T16:00:00Z" },
+    "deviceData": { "kind": "semantic", "content": "El VPS usa PostgreSQL 16.4", "summary": "", "tags": [], "relevance": 0.5, "confidence": 0.9, "verification": "verified", "retention": { "kind": "permanent" }, "source": { "kind": "user", "reference": null, "label": "usuario" }, "createdAt": "2026-10-22T15:00:00Z", "updatedAt": "2026-10-22T16:05:00Z" },
+    "deviceId": "0192f0a0-0000-7000-8000-0000000000d2",
+    "status": "open",
+    "createdAt": "2026-10-22T16:05:01Z"
+  },
+  "resolveRequest": { "resolution": "custom", "data": { "kind": "semantic", "content": "El VPS usa PostgreSQL 17 (migrado desde 16.4)", "summary": "", "tags": [], "relevance": 0.5, "confidence": 1.0, "verification": "verified", "retention": { "kind": "permanent" }, "source": { "kind": "user", "reference": null, "label": "usuario" }, "createdAt": "2026-10-22T15:00:00Z", "updatedAt": "2026-10-22T16:10:00Z" } },
+  "searchRequest": { "query": "¿qué base de datos usa el servidor?", "embedding": { "model": "qwen3-embedding:0.6b", "vector": [0.5, 0.5, 0.5, 0.5] }, "limit": 8, "minConfidence": 0.3, "expandGraph": true },
+  "searchResponse": {
+    "method": "vector:pgvector",
+    "memories": [
+      { "id": "0192f0a0-0000-7000-8000-000000000001", "version": 1, "kind": "semantic", "content": "El servidor VPS usa PostgreSQL 16", "summary": "VPS con PostgreSQL", "tags": ["infra"], "confidence": 0.9, "verification": "verified", "score": 0.93, "via": "match" },
+      { "id": "0192f0a0-0000-7000-8000-000000000002", "version": 2, "kind": "entity", "content": "Servidor VPS", "summary": "", "tags": [], "confidence": 1.0, "verification": "verified", "score": 0.41, "via": "graph" }
+    ],
+    "relations": [
+      { "id": "0192f0a0-0000-7000-8000-0000000000a1", "sourceId": "0192f0a0-0000-7000-8000-000000000001", "targetId": "0192f0a0-0000-7000-8000-000000000002", "kind": "BELONGS_TO", "confidence": 0.9, "provenance": "user", "verified": true }
+    ]
+  },
+  "healthResponse": { "status": "ok", "apiVersion": "v1", "serverTime": "2026-10-22T16:00:00Z", "features": { "sync": "jarvis.sync/1", "vectorSearch": "pgvector" } },
+  "mergeCases": [
+    {
+      "name": "campos distintos se combinan",
+      "base":   { "content": "A", "summary": "s", "tags": ["x"], "confidence": 0.5 },
+      "server": { "content": "A2", "summary": "s", "tags": ["x"], "confidence": 0.5 },
+      "device": { "content": "A", "summary": "s", "tags": ["x"], "confidence": 0.9 },
+      "expect": { "status": "merged", "result": { "content": "A2", "summary": "s", "tags": ["x"], "confidence": 0.9 } }
+    },
+    {
+      "name": "mismo campo con valores distintos es conflicto",
+      "base":   { "content": "A", "summary": "s", "tags": [], "confidence": 0.5 },
+      "server": { "content": "B", "summary": "s", "tags": [], "confidence": 0.5 },
+      "device": { "content": "C", "summary": "s", "tags": [], "confidence": 0.5 },
+      "expect": { "status": "conflict", "fields": ["content"] }
+    },
+    {
+      "name": "mismo cambio en ambos lados no es conflicto",
+      "base":   { "content": "A", "summary": "s", "tags": [], "confidence": 0.5 },
+      "server": { "content": "B", "summary": "s", "tags": [], "confidence": 0.5 },
+      "device": { "content": "B", "summary": "s", "tags": [], "confidence": 0.5 },
+      "expect": { "status": "merged", "result": { "content": "B", "summary": "s", "tags": [], "confidence": 0.5 } }
+    },
+    {
+      "name": "etiquetas: se suman las añadidas y se quitan las eliminadas",
+      "base":   { "content": "A", "summary": "", "tags": ["a", "b"], "confidence": 0.5 },
+      "server": { "content": "A", "summary": "", "tags": ["a", "b", "c"], "confidence": 0.5 },
+      "device": { "content": "A", "summary": "", "tags": ["b", "d"], "confidence": 0.5 },
+      "expect": { "status": "merged", "result": { "content": "A", "summary": "", "tags": ["b", "c", "d"], "confidence": 0.5 } }
+    }
+  ]
+}

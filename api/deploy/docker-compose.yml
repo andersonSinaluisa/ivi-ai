@@ -1,0 +1,124 @@
+# Jarvis Cloud Core en producción (ADR-011): PostgreSQL y nginx son NATIVOS en el host.
+# Docker solo ejecuta jarvis-api, jarvis-worker y mosquitto. Usar siempre a través de deploy/scripts/deploy.sh.
+#
+# - jarvis-api usa la red del host y escucha SOLO en 127.0.0.1 (8080 API/hub, 8081 métricas):
+#   llega a PostgreSQL por 127.0.0.1:${PG_PORT} y nginx le hace proxy por loopback.
+# - jarvis-worker (ADR-016) no publica nada: solo sale hacia PostgreSQL (127.0.0.1) y las URLs de su allowlist.
+#   Lee los backups cifrados en solo lectura para verificarlos.
+# - mosquitto publica 8883 (TLS, devices) a Internet y 1883 solo en 127.0.0.1 (cloud client).
+name: jarvis
+
+x-hardening: &hardening
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  jarvis-api:
+    <<: *hardening
+    image: ${JARVIS_API_IMAGE:-jarvis-api:local}
+    build: { context: .., dockerfile: Dockerfile }
+    network_mode: host
+    depends_on:
+      mosquitto: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://127.0.0.1:8080;http://127.0.0.1:8081
+      ConnectionStrings__Postgres: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_app;Password_File=/run/secrets/db_app_password
+      ConnectionStrings__PostgresMigrator: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_migrator;Password_File=/run/secrets/db_migrator_password
+      ConnectionStrings__PostgresMaintenance: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_maintenance;Password_File=/run/secrets/db_maintenance_password
+      Jwt__SigningKeyFile: /run/secrets/jwt_signing_key
+      Jarvis__DeviceSecretPepperFile: /run/secrets/device_secret_pepper
+      Jarvis__PublicBaseUrl: https://${JARVIS_DOMAIN:?JARVIS_DOMAIN is required}
+      Jarvis__Mqtt__Host: 127.0.0.1
+      Jarvis__Mqtt__Port: "1883"
+      Jarvis__Mqtt__Username: jarvis-cloud
+      Jarvis__Mqtt__PasswordFile: /run/secrets/mqtt_cloud_password
+      Jarvis__Mqtt__PublicHost: ${JARVIS_DOMAIN}
+      Jarvis__Mqtt__PublicPort: "8883"
+      Jarvis__Mqtt__InstanceId: api-1
+    secrets: [db_app_password, db_migrator_password, db_maintenance_password, jwt_signing_key, device_secret_pepper, mqtt_cloud_password]
+    healthcheck:
+      test: ["CMD", "/app/jarvis-api", "healthcheck", "--url", "http://127.0.0.1:8080/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    mem_limit: 1g
+    cpus: 2.0
+    pids_limit: 200
+
+  jarvis-worker:
+    <<: *hardening
+    image: ${JARVIS_WORKER_IMAGE:-jarvis-worker:local}
+    build: { context: .., dockerfile: Dockerfile.worker }
+    network_mode: host
+    depends_on:
+      jarvis-api: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    group_add: ["${BACKUP_READER_GID:-1654}"]
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: Host=127.0.0.1;Port=${PG_PORT:-5432};Database=${PG_DATABASE:-jarvis};Username=jarvis_worker;Password_File=/run/secrets/db_worker_password
+      Jarvis__Worker__BackupDirectory: /backups
+      Jarvis__Worker__HeartbeatPath: /tmp/jarvis-worker.alive
+      # Allowlist de http.check: los jobs solo pueden nombrar una de estas claves, nunca una URL.
+      Jarvis__Worker__HttpChecks__api: http://127.0.0.1:8080/health/ready
+    volumes:
+      - ${BACKUP_DIR:-/opt/jarvis/backups}:/backups:ro
+    secrets: [db_worker_password]
+    healthcheck:
+      test: ["CMD", "/app/jarvis-worker", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    mem_limit: 384m
+    cpus: 1.0
+    pids_limit: 100
+
+  mosquitto:
+    <<: *hardening
+    image: eclipse-mosquitto:2.0.22
+    ports:
+      - "8883:8883"
+      - "127.0.0.1:1883:1883"
+    entrypoint: ["/bin/sh", "/mosquitto/config/docker-entrypoint.sh"]
+    environment:
+      DYNSEC_ADMIN_USER: bootstrap-admin
+      DYNSEC_ADMIN_PASSWORD_FILE: /run/secrets/mosquitto_dynsec_admin_password
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/docker-entrypoint.sh:/mosquitto/config/docker-entrypoint.sh:ro
+      - ${CONFIG_DIR:-/opt/jarvis/config}/mosquitto/certs:/mosquitto/certs:ro
+      - mosquitto-data:/mosquitto/data
+    secrets: [mosquitto_dynsec_admin_password]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 1883 && nc -z 127.0.0.1 8883"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 100
+
+volumes:
+  mosquitto-data:
+
+secrets:
+  db_app_password: { file: "${SECRETS_DIR:-/opt/jarvis/secrets}/db_app_password" }
+  db_migrator_password: { file: "${SECRETS_DIR:-/opt/jarvis/secrets}/db_migrator_password" }
+  db_maintenance_password: { file: "${SECRETS_DIR:-/opt/jarvis/secrets}/db_maintenance_password" }
+  db_worker_password: { file: "${SECRETS_DIR:-/opt/jarvis/secrets}/db_worker_password" }
+  jwt_signing_key: { file: "${SECRETS_DIR:-/opt/jarvis/secrets}/jwt_signing_key" }
+  device_secret_pepper: { file: "${SECRETS_DIR:-/opt/jarvis/secrets}/device_secret_pepper" }
+  mqtt_cloud_password: { file: "${SECRETS_DIR:-/opt/jarvis/secrets}/mqtt_cloud_password" }
+  mosquitto_dynsec_admin_password: { file: "${SECRETS_DIR:-/opt/jarvis/secrets}/mosquitto_dynsec_admin_password" }

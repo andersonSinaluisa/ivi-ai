@@ -1,0 +1,39 @@
+# HU-007: dependencias locales. Puertos solo en 127.0.0.1. La API corre con `dotnet run`.
+name: jarvis-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg17   # PostgreSQL 17 + pgvector (memoria)
+    environment:
+      POSTGRES_DB: jarvis
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    ports: ["127.0.0.1:${JARVIS_DEV_PG_PORT:-55432}:5432"]
+    volumes: [dev-pg-data:/var/lib/postgresql/data]
+    secrets: [postgres_password]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d jarvis"]
+      interval: 5s
+      retries: 10
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0.22
+    entrypoint: ["/bin/sh", "/mosquitto/config/docker-entrypoint.sh"]
+    environment:
+      MOSQUITTO_CONF: /mosquitto/config/mosquitto.dev.conf
+      DYNSEC_ADMIN_USER: bootstrap-admin
+      DYNSEC_ADMIN_PASSWORD_FILE: /run/secrets/mosquitto_dynsec_admin_password
+    ports: ["127.0.0.1:${JARVIS_DEV_MQTT_PORT:-1883}:1883"]
+    volumes:
+      - ./mosquitto/mosquitto.dev.conf:/mosquitto/config/mosquitto.dev.conf:ro
+      - ./mosquitto/docker-entrypoint.sh:/mosquitto/config/docker-entrypoint.sh:ro
+      - dev-mosquitto-data:/mosquitto/data
+    secrets: [mosquitto_dynsec_admin_password]
+
+volumes:
+  dev-pg-data:
+  dev-mosquitto-data:
+
+secrets:
+  postgres_password: { file: ../.local-secrets/postgres_password }
+  mosquitto_dynsec_admin_password: { file: ../.local-secrets/mosquitto_dynsec_admin_password }

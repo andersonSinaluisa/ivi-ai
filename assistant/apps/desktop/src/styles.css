@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/* Tokens de Jarvis. Tipografía nativa de Windows: no se descarga nada. */
+@theme {
+  --color-abyss: #040a16;
+  --color-deep: #0a1a33;
+  --color-tide: #12305a;
+  --color-current: #1d4a80;
+  --color-cyan: #22d3ee;
+  --color-cyan-soft: #67e8f9;
+  --color-ice: #cff6ff;
+  --color-mist: #7e9bb8;
+  --color-amber: #f5b544;
+  --color-coral: #f87171;
+  --color-kelp: #34d399;
+
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+  accent-color: var(--color-cyan);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 700px at 70% -10%, rgb(29 74 128 / 0.35), transparent 60%),
+    var(--color-abyss);
+  color: var(--color-ice);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Panel translúcido moderado: solo donde hay contenido que agrupar. */
+.pane {
+  background: rgb(10 26 51 / 0.72);
+  border: 1px solid rgb(18 48 90 / 0.9);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: rgb(34 211 238 / 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-tide);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

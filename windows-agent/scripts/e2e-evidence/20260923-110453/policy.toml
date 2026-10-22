@@ -1,0 +1,50 @@
+﻿version = 1
+
+[risk]
+auto_approve_max = "R2"
+approval_required_max = "R3"
+
+[signatures]
+approver_keys = [{ id = "owner-laptop-1", key = "TUWaSSjEJFuI7pLMrnzWEbZoZ4+7D2Uk27tCaVAC4H0=" }]
+
+[[principals]]
+id = "cloud:user:201ba35b-7499-4d8e-b9a8-22023e677297"
+capabilities = ["windows.apps.read", "windows.apps.open", "windows.apps.close", "windows.apps.close.force", "commands.run", "commands.run:wait"]
+public_keys = [{ id = "owner-laptop-1", key = "TUWaSSjEJFuI7pLMrnzWEbZoZ4+7D2Uk27tCaVAC4H0=" }]
+
+[[principals]]
+id = "local:owner"
+capabilities = ["windows.apps.read", "windows.apps.open", "windows.apps.close", "windows.apps.close.force", "commands.run", "commands.run:wait"]
+
+[apps.notepad]
+display_name = "Notepad"
+launch = { kind = "path", path = '%SystemRoot%\System32\notepad.exe' }
+process_names = ["notepad.exe"]
+
+[apps.chrome]
+display_name = "Google Chrome"
+launch = { kind = "app_paths", name = "chrome.exe" }
+process_names = ["chrome.exe"]
+
+# Entrada cuyo ejecutable no existe: sirve para el fallo de ejecucion (WIN-E2E-07).
+[apps.broken]
+display_name = "Broken App"
+launch = { kind = "path", path = '%SystemRoot%\System32\jarvis-no-existe.exe' }
+process_names = ["jarvis-no-existe.exe"]
+
+# Proceso que termina de inmediato: la verificacion no lo encuentra vivo (WIN-E2E-08).
+[apps.flash]
+display_name = "Flash"
+launch = { kind = "path", path = '%SystemRoot%\System32\where.exe' }
+process_names = ["where.exe"]
+
+[commands.wait]
+description = "Espera unos 20 segundos"
+executable = '%SystemRoot%\System32\ping.exe'
+args = ["-n", "21", "127.0.0.1"]
+risk = "R2"
+timeout_ms = 30000
+expected_exit_codes = [0, 1]
+
+[privacy]
+title_mode = "redact_patterns"

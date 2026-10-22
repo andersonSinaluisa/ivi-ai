@@ -1,0 +1,116 @@
+﻿{
+    "waiting":  {
+                    "id":  "01a0cf03-e57e-74b7-9ec1-bd007de6423e",
+                    "type":  "CLOSE_APP",
+                    "status":  "WaitingForApproval",
+                    "payload":  {
+                                    "appId":  "notepad",
+                                    "force":  true
+                                },
+                    "requestedBy":  {
+                                        "type":  "User",
+                                        "id":  "201ba35b-7499-4d8e-b9a8-22023e677297"
+                                    },
+                    "sourceDeviceId":  null,
+                    "targetDeviceId":  "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08",
+                    "correlationId":  "01a0cf03-e594-7f4b-8a58-ef145b9f191c",
+                    "idempotencyKey":  null,
+                    "attemptCount":  1,
+                    "expiresAt":  "2026-09-23T16:10:34.206+00:00",
+                    "maxDurationSeconds":  null,
+                    "createdAt":  "2026-09-23T16:05:34.228928+00:00",
+                    "dispatchedAt":  "2026-09-23T16:05:34.260589+00:00",
+                    "deliveredAt":  "2026-09-23T16:05:34.331474+00:00",
+                    "startedAt":  null,
+                    "completedAt":  null,
+                    "cancelRequestedAt":  null,
+                    "progress":  null,
+                    "result":  null,
+                    "error":  null,
+                    "signature":  {
+                                      "alg":  "Ed25519",
+                                      "keyId":  "owner-laptop-1",
+                                      "value":  "J26oRwjagt3u3ULK6gdkc/PgEKKGV+HdvhEaW/fHwjAKVEJ7OB5WxjHKXFP2t416I2wUL2ou/qjk3BF/ixE4CA=="
+                                  }
+                },
+    "relayed":  true,
+    "final":  {
+                  "id":  "01a0cf03-e57e-74b7-9ec1-bd007de6423e",
+                  "type":  "CLOSE_APP",
+                  "status":  "Completed",
+                  "payload":  {
+                                  "appId":  "notepad",
+                                  "force":  true
+                              },
+                  "requestedBy":  {
+                                      "type":  "User",
+                                      "id":  "201ba35b-7499-4d8e-b9a8-22023e677297"
+                                  },
+                  "sourceDeviceId":  null,
+                  "targetDeviceId":  "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08",
+                  "correlationId":  "01a0cf03-e594-7f4b-8a58-ef145b9f191c",
+                  "idempotencyKey":  null,
+                  "attemptCount":  1,
+                  "expiresAt":  "2026-09-23T16:10:34.206+00:00",
+                  "maxDurationSeconds":  null,
+                  "createdAt":  "2026-09-23T16:05:34.228928+00:00",
+                  "dispatchedAt":  "2026-09-23T16:05:34.260589+00:00",
+                  "deliveredAt":  "2026-09-23T16:05:34.331474+00:00",
+                  "startedAt":  "2026-09-23T16:05:34.819945+00:00",
+                  "completedAt":  "2026-09-23T16:05:35.702255+00:00",
+                  "cancelRequestedAt":  null,
+                  "progress":  null,
+                  "result":  {
+                                 "tool":  "close_app",
+                                 "error":  null,
+                                 "output":  {
+                                                "appId":  "notepad",
+                                                "forced":  false,
+                                                "status":  "CLOSED",
+                                                "wasRunning":  true,
+                                                "closedProcesses":  1
+                                            },
+                                 "schema":  "jarvis.tool-result/1",
+                                 "outcome":  "SUCCEEDED",
+                                 "metadata":  {
+                                                  "decision":  "REQUIRES_APPROVAL",
+                                                  "invokedBy":  "cloud",
+                                                  "riskLevel":  "R3"
+                                              },
+                                 "execution":  {
+                                                   "status":  "SUCCEEDED",
+                                                   "details":  {
+                                                                   "method":  "wm_close",
+                                                                   "windowsSignalled":  1
+                                                               },
+                                                   "durationMs":  477
+                                               },
+                                 "startedAt":  "2026-09-23T16:05:34.794Z",
+                                 "truncated":  false,
+                                 "durationMs":  890,
+                                 "finishedAt":  "2026-09-23T16:05:35.685Z",
+                                 "executionId":  "01a0cf03-e7c8-7635-9803-6ab2906f5732",
+                                 "toolVersion":  "1.0.0",
+                                 "verification":  {
+                                                      "checks":  [
+                                                                     {
+                                                                         "name":  "no_process_for_app",
+                                                                         "passed":  true,
+                                                                         "observed":  {
+                                                                                          "remaining":  0
+                                                                                      }
+                                                                     }
+                                                                 ],
+                                                      "method":  "process_absent",
+                                                      "status":  "PASSED",
+                                                      "durationMs":  412
+                                                  }
+                             },
+                  "error":  null,
+                  "signature":  {
+                                    "alg":  "Ed25519",
+                                    "keyId":  "owner-laptop-1",
+                                    "value":  "J26oRwjagt3u3ULK6gdkc/PgEKKGV+HdvhEaW/fHwjAKVEJ7OB5WxjHKXFP2t416I2wUL2ou/qjk3BF/ixE4CA=="
+                                }
+              }
+}

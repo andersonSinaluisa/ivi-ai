@@ -1,0 +1,71 @@
+[package]
+name = "jarvis-desktop"
+version = "0.1.0"
+description = "Jarvis — asistente personal de escritorio (agent core local-first)"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+[lib]
+name = "jarvis_desktop_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "jarvis-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+toml = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "process"] }
+tokio-util = "0.7"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+futures-util = "0.3"
+async-trait = "0.1"
+thiserror = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde", "clock"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs = "6"
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+regex = "1"
+sha2 = "0.10"
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+tar = { version = "0.4", default-features = false }
+tempfile = "3"
+
+# Credencial del Cloud Core en el Credential Manager de Windows (como el windows-agent).
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+[dev-dependencies]
+wiremock = "0.6"
+
+# Menos disco y builds más rápidos en desarrollo: sin información de depuración.
+[profile.dev]
+debug = 0
+
+[profile.dev.package."*"]
+debug = false
+
+# La derivación de clave (Argon2id) es muy lenta sin optimizar.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
+[profile.dev.package.chacha20]
+opt-level = 3
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

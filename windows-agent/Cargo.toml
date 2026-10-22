@@ -1,0 +1,66 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/jarvis-protocol",
+    "crates/jarvis-tooling",
+    "crates/jarvis-policy",
+    "crates/jarvis-state",
+    "crates/jarvis-windows",
+    "crates/jarvis-agent",
+    "crates/jarvis-sign",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "UNLICENSED"
+publish = false
+
+[workspace.dependencies]
+jarvis-protocol = { path = "crates/jarvis-protocol" }
+jarvis-tooling = { path = "crates/jarvis-tooling" }
+jarvis-policy = { path = "crates/jarvis-policy" }
+jarvis-state = { path = "crates/jarvis-state" }
+jarvis-windows = { path = "crates/jarvis-windows" }
+
+anyhow = "1"
+async-trait = "0.1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
+clap = { version = "4", features = ["derive"] }
+rand = "0.9"
+rpassword = "7"
+rumqttc = { version = "0.25", default-features = false, features = ["use-rustls-no-provider"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+rustls-pemfile = "2"
+rustls-platform-verifier = "0.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "signal"] }
+tokio-util = "0.7"
+regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
+toml = "0.9"
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+windows = "0.62"
+zeroize = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "unwind"

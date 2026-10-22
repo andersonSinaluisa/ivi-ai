@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "search_memory",
+  "description": "Busca en la memoria de Jarvis recuerdos relacionados con una consulta.",
+  "type": "object",
+  "properties": {
+    "query": { "type": "string" },
+    "limit": { "type": "integer", "minimum": 1, "maximum": 10 }
+  },
+  "required": ["query"],
+  "additionalProperties": false
+}

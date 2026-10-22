@@ -1,0 +1,9 @@
+{
+  "name": "@jarvis/shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tipos TypeScript compartidos entre la UI y los contratos de Rust y del servicio de voz.",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

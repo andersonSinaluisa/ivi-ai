@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "jarvis/agent-event/1",
+  "title": "AgentEvent",
+  "description": "Evento que el agent core (Rust) envía a la UI por un tauri::ipc::Channel. Espejo de domain::events::AgentEvent.",
+  "type": "object",
+  "required": ["type", "runId"],
+  "properties": {
+    "type": {
+      "enum": ["run_started", "phase", "token", "tool_call", "approval_required", "approval_resolved", "tool_result", "final", "error", "cancelled"]
+    },
+    "runId": { "type": "string" },
+    "conversationId": { "type": "string" },
+    "phase": { "enum": ["observe", "understand", "plan", "authorize", "execute", "verify", "remember"] },
+    "text": { "type": "string" },
+    "callId": { "type": "string" },
+    "approvalId": { "type": "string" },
+    "tool": { "type": "string" },
+    "arguments": {},
+    "risk": { "enum": ["READ_ONLY", "LOW_RISK", "SENSITIVE", "DESTRUCTIVE"] },
+    "reason": { "type": ["string", "null"] },
+    "approved": { "type": "boolean" },
+    "ok": { "type": "boolean" },
+    "output": {},
+    "error": { "type": ["string", "null"] },
+    "verification": { "enum": ["passed", "failed", "inconclusive", "not_applicable"] },
+    "durationMs": { "type": "integer", "minimum": 0 },
+    "code": { "enum": ["llm_unavailable", "model_not_found", "llm_error", "timeout", "internal"] },
+    "message": { "type": "string" }
+  }
+}

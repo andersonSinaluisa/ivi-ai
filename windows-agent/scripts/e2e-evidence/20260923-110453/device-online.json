@@ -1,0 +1,39 @@
+﻿{
+    "id":  "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08",
+    "name":  "jarvis-e2e-20260923-110453",
+    "type":  "Windows",
+    "status":  "Online",
+    "adminState":  "Active",
+    "presenceState":  "Online",
+    "busy":  false,
+    "capabilities":  [
+                         "agent",
+                         "windows-control"
+                     ],
+    "supportedTaskTypes":  [
+                               "CLOSE_APP",
+                               "GET_ACTIVE_WINDOW",
+                               "IS_APP_RUNNING",
+                               "LIST_RUNNING_APPS",
+                               "OPEN_APP",
+                               "OPEN_CHROME",
+                               "RUN_COMMAND"
+                           ],
+    "reportedInfo":  {
+                         "platform":  "windows",
+                         "protocolVersion":  "1.1",
+                         "softwareVersion":  "jarvis-windows-agent/0.1.0"
+                     },
+    "lastSeenAt":  "2026-09-23T16:04:54.117836+00:00",
+    "lastConnectedAt":  "2026-09-23T16:04:54.117836+00:00",
+    "lastDisconnectedAt":  null,
+    "brokerSynced":  true,
+    "credential":  {
+                       "id":  "01a0cf03-46a8-7ec0-a61d-92da7fbf38a7",
+                       "hint":  "d4zU",
+                       "createdAt":  "2026-09-23T16:04:53.544622+00:00",
+                       "lastUsedAt":  null
+                   },
+    "createdAt":  "2026-09-23T16:04:53.544622+00:00",
+    "updatedAt":  "2026-09-23T16:04:54.117836+00:00"
+}

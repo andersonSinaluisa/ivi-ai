@@ -1,0 +1,21 @@
+[package]
+name = "jarvis-policy"
+description = "Local policy: principals, capabilities, risk thresholds, app catalog and permission decisions"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+jarvis-protocol.workspace = true
+jarvis-tooling.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,5 @@
+﻿{
+    "HttpError":  true,
+    "StatusCode":  422,
+    "Body":  "{\"type\":\"urn:jarvis:problem:task-type-not-supported\",\"title\":\"Task type not supported\",\"status\":422,\"detail\":\"Target device does not support FORMAT_DISK.\",\"instance\":\"/api/v1/tasks\",\"code\":\"TASK_TYPE_NOT_SUPPORTED\",\"correlationId\":\"01a0cf03-997a-7a00-ad9b-576ab974fe6e\",\"traceId\":\"00-68ddd4a954556c9887cb3ce02c151a60-d256f692c6b46570-00\"}"
+}

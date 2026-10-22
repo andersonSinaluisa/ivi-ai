@@ -1,0 +1,45 @@
+# CI de Jarvis Cloud Core (docs/10-testing/testing-strategy.md#ci-a-implementar-con-el-código).
+# Asume que api/ es la raíz del repositorio. Los runners ubuntu-latest traen Docker (Testcontainers).
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Jarvis.slnx
+      - run: dotnet build Jarvis.slnx --no-restore -c Release
+      - name: Unit + integration + E2E
+        run: dotnet test --solution Jarvis.slnx --no-build -c Release
+      - name: Model and migrations in sync
+        run: dotnet tool restore && dotnet ef migrations has-pending-model-changes --project src/Jarvis.Infrastructure --startup-project src/Jarvis.Infrastructure
+
+  image:
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t jarvis-api:${{ github.sha }} .
+      - run: docker build -f Dockerfile.worker -t jarvis-worker:${{ github.sha }} .
+      - name: Vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: jarvis-api:${{ github.sha }}
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: Vulnerability scan (worker)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: jarvis-worker:${{ github.sha }}
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true

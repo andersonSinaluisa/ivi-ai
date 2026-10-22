@@ -1,0 +1,7 @@
+{
+  "name": "@jarvis/tool-schemas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JSON Schema de los parámetros de las herramientas locales de Jarvis. Rust los incrusta con include_str!.",
+  "files": ["schemas"]
+}

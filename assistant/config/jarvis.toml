@@ -1,0 +1,48 @@
+# Configuración por defecto de Jarvis (proveedores, agente, herramientas y voz).
+#
+# Los cambios hechos desde la pantalla de Configuración se guardan en
+# %LOCALAPPDATA%\Jarvis\settings.json y tienen prioridad sobre este archivo.
+
+[llm]
+provider = "ollama"
+base_url = "http://127.0.0.1:11434"
+# Modelo por defecto. Si no está instalado, la app lo indica y deja elegir otro Qwen instalado.
+# qwen3:4b ocupa ~2.6 GB; con más VRAM y disco conviene uno mayor (ver docs/architecture.md).
+model = "qwen3:4b"
+temperature = 0.4
+# Contexto en tokens. Más contexto = más memoria de GPU.
+num_ctx = 8192
+# Los modelos Qwen3 "piensan" antes de responder; desactivarlo hace las respuestas más rápidas.
+think = false
+request_timeout_secs = 120
+
+[agent]
+# Máximo de vueltas LLM → herramienta → LLM por instrucción.
+max_steps = 6
+# Mensajes previos de la conversación que se envían al modelo.
+history_messages = 20
+# Tiempo que se espera una aprobación del usuario antes de denegarla.
+approval_timeout_secs = 120
+
+[policy]
+# Clases de riesgo que se ejecutan sin preguntar. DESTRUCTIVE nunca se auto-aprueba.
+auto_approve = ["READ_ONLY", "LOW_RISK"]
+# Herramientas bloqueadas siempre.
+deny = []
+
+[windows_agent]
+# Local Tool API del windows-agent (named pipe). Vacío = se calcula con el SID del usuario:
+# \\.\pipe\jarvis-tools-<SID>
+pipe = ""
+enabled = true
+
+[voice]
+# El servicio de voz solo escucha en loopback.
+base_url = "http://127.0.0.1:8765"
+
+[memory]
+# Modelo de embeddings (búsqueda semántica). Instálalo con: ollama pull qwen3-embedding:0.6b
+# Sin él, Jarvis usa un respaldo léxico (encuentra palabras, no sinónimos).
+embedding_model = "qwen3-embedding:0.6b"
+# Recuerdos que se envían a Qwen por instrucción.
+memories_per_turn = 6

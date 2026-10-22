@@ -1,0 +1,33 @@
+﻿{
+    "id":  "01a0cf03-95aa-71ba-92b3-29e3dfe869fa",
+    "type":  "CLOSE_APP",
+    "status":  "Failed",
+    "payload":  {
+                    "appId":  "notepad",
+                    "force":  true
+                },
+    "requestedBy":  {
+                        "type":  "User",
+                        "id":  "201ba35b-7499-4d8e-b9a8-22023e677297"
+                    },
+    "sourceDeviceId":  null,
+    "targetDeviceId":  "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08",
+    "correlationId":  "01a0cf03-95aa-786c-afa7-2a8ed7127ea6",
+    "idempotencyKey":  null,
+    "attemptCount":  1,
+    "expiresAt":  "2026-09-23T16:10:13.770984+00:00",
+    "maxDurationSeconds":  60,
+    "createdAt":  "2026-09-23T16:05:13.770984+00:00",
+    "dispatchedAt":  "2026-09-23T16:05:13.78677+00:00",
+    "deliveredAt":  "2026-09-23T16:05:13.80942+00:00",
+    "startedAt":  null,
+    "completedAt":  "2026-09-23T16:05:13.80942+00:00",
+    "cancelRequestedAt":  null,
+    "progress":  null,
+    "result":  null,
+    "error":  {
+                  "code":  "NOT_PERMITTED",
+                  "message":  "NOT_PERMITTED: principal cloud:user:201ba35b-7499-4d8e-b9a8-22023e677297 lacks windows.apps.close.force"
+              },
+    "signature":  null
+}

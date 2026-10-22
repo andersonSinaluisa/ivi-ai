@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+**/TestResults/
+.git/
+.vs/
+.idea/
+.local-secrets/
+secrets/
+deploy/
+docs/
+tests/
+tools/
+**/*.env
+**/*.pem
+**/*.key
+**/*.db

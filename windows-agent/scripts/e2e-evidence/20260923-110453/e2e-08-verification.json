@@ -1,0 +1,32 @@
+﻿{
+    "id":  "01a0cf03-9b8e-75cf-957e-3c82756a5045",
+    "type":  "OPEN_APP",
+    "status":  "Failed",
+    "payload":  {
+                    "appId":  "flash"
+                },
+    "requestedBy":  {
+                        "type":  "User",
+                        "id":  "201ba35b-7499-4d8e-b9a8-22023e677297"
+                    },
+    "sourceDeviceId":  null,
+    "targetDeviceId":  "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08",
+    "correlationId":  "01a0cf03-9b8e-72be-a4e8-0e4bafca4360",
+    "idempotencyKey":  null,
+    "attemptCount":  1,
+    "expiresAt":  "2026-09-23T16:10:15.278825+00:00",
+    "maxDurationSeconds":  60,
+    "createdAt":  "2026-09-23T16:05:15.278825+00:00",
+    "dispatchedAt":  "2026-09-23T16:05:15.295276+00:00",
+    "deliveredAt":  "2026-09-23T16:05:15.366121+00:00",
+    "startedAt":  "2026-09-23T16:05:15.385591+00:00",
+    "completedAt":  "2026-09-23T16:05:15.986648+00:00",
+    "cancelRequestedAt":  null,
+    "progress":  null,
+    "result":  null,
+    "error":  {
+                  "code":  "VERIFICATION_FAILED",
+                  "message":  "the process exited with code 2 before showing a window"
+              },
+    "signature":  null
+}

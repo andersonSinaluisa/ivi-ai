@@ -1,0 +1,13 @@
+{
+  "name": "jarvis",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Jarvis — asistente personal local-first (monorepo)",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "npm run tauri:dev -w apps/desktop",
+    "test": "npm run test -w apps/desktop",
+    "typecheck": "npm run typecheck -w apps/desktop",
+    "build:web": "npm run build -w apps/desktop"
+  }
+}

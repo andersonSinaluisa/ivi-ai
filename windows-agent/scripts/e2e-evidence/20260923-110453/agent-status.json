@@ -1,0 +1,44 @@
+﻿{
+  "agent": {
+    "state": "RUNNING",
+    "version": "jarvis-windows-agent/0.1.0",
+    "uptimeSeconds": 13,
+    "elevated": false,
+    "deviceId": "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08"
+  },
+  "mqtt": {
+    "connected": true,
+    "since": "2026-09-23T16:05:22.663520900Z",
+    "reconnects": 0,
+    "lastError": null,
+    "broker": "mqtt://127.0.0.1:1883"
+  },
+  "cloud": {
+    "reachable": true,
+    "lastHelloAck": "2026-09-23T16:05:22.708977900Z",
+    "clockOffsetMs": -41,
+    "authRejected": false
+  },
+  "db": {
+    "healthy": true,
+    "sizeBytes": 4096,
+    "outboxPending": 0,
+    "unsettled": 1
+  },
+  "tools": {
+    "healthy": true,
+    "enabled": 6,
+    "running": 0,
+    "awaitingApproval": 0,
+    "stuck": 0
+  },
+  "policy": {
+    "valid": true,
+    "loadedAt": "2026-09-23T16:05:36.234182900Z"
+  },
+  "session": {
+    "state": "Active"
+  },
+  "conditions": []
+}
+

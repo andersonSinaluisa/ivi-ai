@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+models/*
+!models/README.md
+.pytest_cache/
+*.egg-info/

@@ -1,0 +1,21 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.EntityFrameworkCore": "Warning"
+    },
+    "Console": { "FormatterName": "json" }
+  },
+  "ConnectionStrings": {
+    "Postgres": ""
+  },
+  "Jarvis": {
+    "Worker": {
+      "PollSeconds": 10,
+      "MaxConcurrentRuns": 2,
+      "BackupDirectory": "/backups",
+      "HeartbeatPath": "/tmp/jarvis-worker.alive",
+      "HttpChecks": {}
+    }
+  }
+}

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Jarvis.Domain\Jarvis.Domain.csproj" />
+    <ProjectReference Include="..\Jarvis.Contracts\Jarvis.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="System.Threading.RateLimiting" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Auth\common-passwords.txt" />
+    <InternalsVisibleTo Include="Jarvis.Application.Tests" />
+  </ItemGroup>
+</Project>

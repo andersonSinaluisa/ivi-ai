@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "get_system_info",
+  "description": "Devuelve información básica del equipo: sistema operativo, nombre del equipo, CPU, memoria y tiempo encendido.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}

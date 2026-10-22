@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "jarvis/voice-ws/1",
+  "title": "Voice WebSocket messages",
+  "description": "Mensajes de ws://127.0.0.1:8765/ws. El primer mensaje del cliente debe ser auth; si el token no es válido el servidor cierra con 4401 y si el Origin no está permitido, con 4403.",
+  "$defs": {
+    "state": { "enum": ["IDLE", "LISTENING_WAKE_WORD", "WAKE_DETECTED", "RECORDING_COMMAND", "TRANSCRIBING", "THINKING", "SPEAKING", "ERROR"] },
+    "client": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["auth", "ptt_start", "ptt_stop", "cancel", "thinking", "agent_done", "speak", "stop_speaking", "set_listening"] },
+        "token": { "type": "string" },
+        "text": { "type": "string", "maxLength": 4000 },
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "server": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["hello", "state", "level", "output_level", "wake", "transcript", "speaking", "info", "error"] },
+        "state": { "$ref": "#/$defs/state" },
+        "previous": { "$ref": "#/$defs/state" },
+        "reason": { "type": ["string", "null"] },
+        "rms": { "type": "number", "minimum": 0, "maximum": 1 },
+        "peak": { "type": "number", "minimum": 0, "maximum": 1 },
+        "score": { "type": "number" },
+        "text": { "type": "string" },
+        "language": { "type": "string" },
+        "durationMs": { "type": "integer" },
+        "chunk": { "type": "integer" },
+        "total": { "type": "integer" },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "listening": { "type": "boolean" },
+        "wakeWord": { "type": "object" }
+      }
+    }
+  }
+}

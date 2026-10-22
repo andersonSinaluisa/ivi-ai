@@ -1,0 +1,20 @@
+[package]
+name = "jarvis-protocol"
+description = "Jarvis Cloud MQTT protocol v1 (envelope, topics, messages) as seen by the Windows Agent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono.workspace = true
+ed25519-dalek.workspace = true
+sha2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

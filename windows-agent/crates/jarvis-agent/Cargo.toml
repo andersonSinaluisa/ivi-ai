@@ -1,0 +1,54 @@
+[package]
+name = "jarvis-agent"
+description = "Jarvis Windows Agent: executes verified, authorized tasks from Jarvis Cloud"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "jarvis_agent"
+path = "src/lib.rs"
+
+[[bin]]
+name = "jarvis-agent"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+clap.workspace = true
+jarvis-policy.workspace = true
+jarvis-protocol.workspace = true
+jarvis-state.workspace = true
+jarvis-tooling.workspace = true
+rand.workspace = true
+rpassword.workspace = true
+rumqttc.workspace = true
+rustls.workspace = true
+rustls-pemfile.workspace = true
+rustls-platform-verifier.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+jarvis-windows.workspace = true
+
+[dev-dependencies]
+ed25519-dalek.workspace = true
+tempfile = "3"
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true

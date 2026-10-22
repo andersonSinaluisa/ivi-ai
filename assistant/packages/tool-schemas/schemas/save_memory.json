@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "save_memory",
+  "description": "Guarda un recuerdo duradero del usuario (un hecho, una preferencia, un procedimiento o una entidad). No guardes contraseñas, tokens ni datos sensibles.",
+  "type": "object",
+  "properties": {
+    "content": { "type": "string", "description": "El recuerdo, en una o dos frases y en tercera persona (\"El usuario…\")." },
+    "summary": { "type": "string", "description": "Título corto, opcional." },
+    "kind": { "enum": ["semantic", "entity", "procedural"], "description": "semantic = hecho o preferencia; entity = cosa con nombre (proyecto, persona); procedural = cómo se hace algo." },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "related_to": { "type": "array", "items": { "type": "string" }, "description": "Ids [m:xxxxxxxx] de recuerdos relacionados que aparecen en el contexto." },
+    "relation": { "enum": ["BELONGS_TO", "DEPENDS_ON", "CAUSED_BY", "SOLVED_BY", "RELATED_TO", "LEARNED_FROM", "USED_IN"] }
+  },
+  "required": ["content"],
+  "additionalProperties": false
+}

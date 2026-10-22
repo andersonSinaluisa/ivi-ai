@@ -1,0 +1,109 @@
+﻿{
+    "waiting":  {
+                    "id":  "01a0cf03-d09a-778e-94f8-333117aeed4a",
+                    "type":  "CLOSE_APP",
+                    "status":  "WaitingForApproval",
+                    "payload":  {
+                                    "appId":  "notepad",
+                                    "force":  true
+                                },
+                    "requestedBy":  {
+                                        "type":  "User",
+                                        "id":  "201ba35b-7499-4d8e-b9a8-22023e677297"
+                                    },
+                    "sourceDeviceId":  null,
+                    "targetDeviceId":  "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08",
+                    "correlationId":  "01a0cf03-d09a-7823-a66f-d36655d6ce1e",
+                    "idempotencyKey":  null,
+                    "attemptCount":  1,
+                    "expiresAt":  "2026-09-23T16:10:28.858032+00:00",
+                    "maxDurationSeconds":  120,
+                    "createdAt":  "2026-09-23T16:05:28.858032+00:00",
+                    "dispatchedAt":  "2026-09-23T16:05:28.873348+00:00",
+                    "deliveredAt":  "2026-09-23T16:05:28.948349+00:00",
+                    "startedAt":  null,
+                    "completedAt":  null,
+                    "cancelRequestedAt":  null,
+                    "progress":  null,
+                    "result":  null,
+                    "error":  null,
+                    "signature":  null
+                },
+    "pending":  "TASK                                   TOOL         RISK  REQUESTED BY                 INPUT\n01a0cf03-d09a-778e-94f8-333117aeed4a close_app    R3    cloud:user:201ba35b-7499-4d8e-b9a8-22023e677297 appId=\"notepad\" force=true\n\nApprove with: jarvis-agent approvals approve \u003cTASK\u003e\n",
+    "grant":  "task 01a0cf03-d09a-778e-94f8-333117aeed4a approved\n",
+    "final":  {
+                  "id":  "01a0cf03-d09a-778e-94f8-333117aeed4a",
+                  "type":  "CLOSE_APP",
+                  "status":  "Completed",
+                  "payload":  {
+                                  "appId":  "notepad",
+                                  "force":  true
+                              },
+                  "requestedBy":  {
+                                      "type":  "User",
+                                      "id":  "201ba35b-7499-4d8e-b9a8-22023e677297"
+                                  },
+                  "sourceDeviceId":  null,
+                  "targetDeviceId":  "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08",
+                  "correlationId":  "01a0cf03-d09a-7823-a66f-d36655d6ce1e",
+                  "idempotencyKey":  null,
+                  "attemptCount":  1,
+                  "expiresAt":  "2026-09-23T16:10:28.858032+00:00",
+                  "maxDurationSeconds":  120,
+                  "createdAt":  "2026-09-23T16:05:28.858032+00:00",
+                  "dispatchedAt":  "2026-09-23T16:05:28.873348+00:00",
+                  "deliveredAt":  "2026-09-23T16:05:28.948349+00:00",
+                  "startedAt":  "2026-09-23T16:05:29.655058+00:00",
+                  "completedAt":  "2026-09-23T16:05:30.519242+00:00",
+                  "cancelRequestedAt":  null,
+                  "progress":  null,
+                  "result":  {
+                                 "tool":  "close_app",
+                                 "error":  null,
+                                 "output":  {
+                                                "appId":  "notepad",
+                                                "forced":  false,
+                                                "status":  "CLOSED",
+                                                "wasRunning":  true,
+                                                "closedProcesses":  1
+                                            },
+                                 "schema":  "jarvis.tool-result/1",
+                                 "outcome":  "SUCCEEDED",
+                                 "metadata":  {
+                                                  "decision":  "REQUIRES_APPROVAL",
+                                                  "invokedBy":  "cloud",
+                                                  "riskLevel":  "R3"
+                                              },
+                                 "execution":  {
+                                                   "status":  "SUCCEEDED",
+                                                   "details":  {
+                                                                   "method":  "wm_close",
+                                                                   "windowsSignalled":  1
+                                                               },
+                                                   "durationMs":  427
+                                               },
+                                 "startedAt":  "2026-09-23T16:05:29.638Z",
+                                 "truncated":  false,
+                                 "durationMs":  867,
+                                 "finishedAt":  "2026-09-23T16:05:30.505Z",
+                                 "executionId":  "01a0cf03-d3a2-711e-ae82-8104b9b19c78",
+                                 "toolVersion":  "1.0.0",
+                                 "verification":  {
+                                                      "checks":  [
+                                                                     {
+                                                                         "name":  "no_process_for_app",
+                                                                         "passed":  true,
+                                                                         "observed":  {
+                                                                                          "remaining":  0
+                                                                                      }
+                                                                     }
+                                                                 ],
+                                                      "method":  "process_absent",
+                                                      "status":  "PASSED",
+                                                      "durationMs":  439
+                                                  }
+                             },
+                  "error":  null,
+                  "signature":  null
+              }
+}

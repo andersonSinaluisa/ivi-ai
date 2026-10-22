@@ -1,0 +1,11 @@
+﻿[device]
+device_id = "01a0cf03-46a8-7a95-bcb2-b1bca1d9dd08"
+
+[cloud]
+broker_url = "mqtt://127.0.0.1:1883"
+
+[tools]
+enabled = ["is_app_running", "list_running_apps", "get_active_window", "open_app", "close_app", "run_command"]
+
+[logging]
+level = "info"
