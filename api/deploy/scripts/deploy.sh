@@ -63,7 +63,9 @@ PG_DATABASE="${PG_DATABASE:-jarvis}"
 CERTBOT_WEBROOT="${CERTBOT_WEBROOT:-/var/www/certbot}"
 JARVIS_API_PORT="${JARVIS_API_PORT:-8080}"
 JARVIS_METRICS_PORT="${JARVIS_METRICS_PORT:-8081}"
-export SECRETS_DIR CONFIG_DIR PG_PORT PG_DATABASE JARVIS_DOMAIN JARVIS_API_PORT JARVIS_METRICS_PORT
+JARVIS_STT_PORT="${JARVIS_STT_PORT:-9100}"
+JARVIS_TTS_PORT="${JARVIS_TTS_PORT:-9200}"
+export SECRETS_DIR CONFIG_DIR PG_PORT PG_DATABASE JARVIS_DOMAIN JARVIS_API_PORT JARVIS_METRICS_PORT JARVIS_STT_PORT JARVIS_TTS_PORT
 
 compose() { docker compose --project-directory "$DEPLOY_DIR" -f "$DEPLOY_DIR/docker-compose.yml" --env-file "$ENV_FILE" "$@"; }
 psql_su() { sudo -u postgres psql -X -q -v ON_ERROR_STOP=1 -p "$PG_PORT" "$@"; }
@@ -156,7 +158,9 @@ server {
 }
 EOF
   else
-    sed -e "s/__JARVIS_DOMAIN__/$JARVIS_DOMAIN/g" -e "s/__JARVIS_API_PORT__/$JARVIS_API_PORT/g" "$DEPLOY_DIR/nginx/jarvis-site.conf.template" > "$tmp"
+    sed -e "s/__JARVIS_DOMAIN__/$JARVIS_DOMAIN/g" -e "s/__JARVIS_API_PORT__/$JARVIS_API_PORT/g" \
+        -e "s/__JARVIS_STT_PORT__/$JARVIS_STT_PORT/g" -e "s/__JARVIS_TTS_PORT__/$JARVIS_TTS_PORT/g" \
+        "$DEPLOY_DIR/nginx/jarvis-site.conf.template" > "$tmp"
     # `http2 on;` existe desde nginx 1.25.1; Ubuntu 22.04/24.04 traen 1.18/1.24: ahí va en `listen ... ssl http2`.
     if ! nginx_at_least 1.25.1; then
       sed -i -e '/^[[:space:]]*http2 on;/d' -e 's/^\([[:space:]]*listen [^;]*443 ssl\);/\1 http2;/' "$tmp"
@@ -244,17 +248,20 @@ ok "jarvis-worker healthy (sin puertos; backups montados en solo lectura)"
 
 # Servicios del owner que nginx publica con la credencial de Jarvis (/ollama, /stt, /tts).
 if [ "$SKIP_VOICE" -eq 0 ]; then
-  for port in 9100 9200; do
-    if ss -tlnH "sport = :$port" 2>/dev/null | grep -q . && ! docker compose -f "$DEPLOY_DIR/voice/compose.yml" ps -q 2>/dev/null | grep -q .; then
-      die "Port $port is in use by another service (jarvis-stt uses 9100, jarvis-tts 9200). Free it or run with --skip-voice."
-    fi
-  done
+  if ! docker compose -f "$DEPLOY_DIR/voice/compose.yml" ps -q 2>/dev/null | grep -q .; then
+    for port in "$JARVIS_STT_PORT" "$JARVIS_TTS_PORT"; do
+      if ss -tlnH "sport = :$port" 2>/dev/null | grep -q .; then
+        ss -tlnpH "sport = :$port" 2>/dev/null | sed 's/^/    en uso: /' >&2
+        die "Port $port is already in use by another service. Set JARVIS_STT_PORT / JARVIS_TTS_PORT in deploy/.env to free ports (e.g. 9110/9210) and run deploy.sh again (or use --skip-voice)."
+      fi
+    done
+  fi
   if [ "$SKIP_BUILD" -eq 0 ]; then
     docker compose -f "$DEPLOY_DIR/voice/compose.yml" up -d --build
   else
     docker compose -f "$DEPLOY_DIR/voice/compose.yml" up -d
   fi
-  ok "jarvis-stt (127.0.0.1:9100) y jarvis-tts (127.0.0.1:9200) arrancando; la primera vez descargan sus modelos (ver: docker compose -f deploy/voice/compose.yml logs -f)"
+  ok "jarvis-stt (127.0.0.1:$JARVIS_STT_PORT) y jarvis-tts (127.0.0.1:$JARVIS_TTS_PORT) arrancando; la primera vez descargan sus modelos (ver: docker compose -f deploy/voice/compose.yml logs -f)"
 else
   warn "--skip-voice: sin transcripción ni voz en el servidor"
 fi

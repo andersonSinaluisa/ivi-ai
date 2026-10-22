@@ -18,7 +18,7 @@ habilidades y jobs, [ADR-013](../08-decisions/ADR-013-memory-module-in-cloud-cor
 | PostgreSQL | **El existente del host** | Base dedicada `jarvis` y roles `jarvis_*` propios. No se cambia su configuración global ni otras bases |
 | pgvector | Opcional | Si el paquete del sistema está instalado se activa **solo** en la base `jarvis`. Si no, la búsqueda por similitud se hace en la aplicación |
 | nginx | **El existente del host** | Un sitio propio (`jarvis.conf`) con nombres prefijados `jarvis_`; `nginx -t` antes de recargar y restauración automática si falla |
-| `jarvis-stt` / `jarvis-tts` | Docker (`deploy/voice`), red del host, `127.0.0.1:9100` / `:9200` | Transcripción (faster-whisper) y voz (Piper) en CPU. Ver [Servicios de modelos](#servicios-de-modelos-y-voz-adr-017) |
+| `jarvis-stt` / `jarvis-tts` | Docker (`deploy/voice`), red del host, `127.0.0.1:${JARVIS_STT_PORT:-9100}` / `${JARVIS_TTS_PORT:-9200}` (en `deploy/.env` si están ocupados) | Transcripción (faster-whisper) y voz (Piper) en CPU. Ver [Servicios de modelos](#servicios-de-modelos-y-voz-adr-017) |
 | Ollama (Qwen y embeddings) | **Del owner** (no lo instala `deploy.sh`) | Debe responder en `127.0.0.1:11434`; nginx lo publica en `/ollama/` |
 
 Lo que **nunca** se hace: publicar PostgreSQL, borrar o parar contenedores que no sean `jarvis-*`/`mosquitto` del
@@ -122,8 +122,8 @@ tokens que copiar, y revocar el equipo le corta también modelos y voz.
 | Ruta pública | Servicio local | Quién lo levanta |
 |---|---|---|
 | `/ollama/` | Ollama en `127.0.0.1:11434` | El owner (ver abajo) |
-| `/stt/` | `jarvis-stt` en `127.0.0.1:9100` | `deploy.sh` (`deploy/voice/compose.yml`) |
-| `/tts/` | `jarvis-tts` en `127.0.0.1:9200` | `deploy.sh` (`deploy/voice/compose.yml`) |
+| `/stt/` | `jarvis-stt` en `127.0.0.1:$JARVIS_STT_PORT` (9100) | `deploy.sh` (`deploy/voice/compose.yml`) |
+| `/tts/` | `jarvis-tts` en `127.0.0.1:$JARVIS_TTS_PORT` (9200) | `deploy.sh` (`deploy/voice/compose.yml`) |
 
 ### Ollama
 
@@ -152,8 +152,8 @@ sus modelos en volúmenes (`base` ≈ 145 MB; voz `es_MX-claude-high` ≈ 110 MB
 
 ```bash
 sudo docker compose -f /opt/jarvis/compose/deploy/voice/compose.yml logs -f      # progreso de la descarga
-curl -s http://127.0.0.1:9100/health; echo                                       # "ready": true
-curl -s http://127.0.0.1:9200/health; echo
+curl -s http://127.0.0.1:${JARVIS_STT_PORT:-9100}/health; echo                    # "ready": true
+curl -s http://127.0.0.1:${JARVIS_TTS_PORT:-9200}/health; echo
 ```
 
 | Variable (`deploy/voice/.env`) | Por defecto | Notas |

@@ -125,7 +125,7 @@ server {
     proxy_pass http://127.0.0.1:11434/;
   }
 
-  # jarvis-stt (faster-whisper), deploy/voice.
+  # jarvis-stt (faster-whisper), deploy/voice. Puerto: JARVIS_STT_PORT en deploy/.env.
   location ^~ /stt/ {
     auth_request /_jarvis_access;
     limit_req zone=jarvis_api burst=10 nodelay;
@@ -134,10 +134,10 @@ server {
     proxy_set_header Authorization "";
     proxy_set_header Connection "";
     proxy_read_timeout 120s;
-    proxy_pass http://127.0.0.1:9100/;
+    proxy_pass http://127.0.0.1:__JARVIS_STT_PORT__/;
   }
 
-  # jarvis-tts (Piper), deploy/voice.
+  # jarvis-tts (Piper), deploy/voice. Puerto: JARVIS_TTS_PORT en deploy/.env.
   location ^~ /tts/ {
     auth_request /_jarvis_access;
     limit_req zone=jarvis_api burst=10 nodelay;
@@ -146,7 +146,7 @@ server {
     proxy_set_header Authorization "";
     proxy_set_header Connection "";
     proxy_read_timeout 120s;
-    proxy_pass http://127.0.0.1:9200/;
+    proxy_pass http://127.0.0.1:__JARVIS_TTS_PORT__/;
   }
 
   # Rutas propias del owner que deploy.sh no gestiona; sobreviven a cada despliegue (vacía = nada).
