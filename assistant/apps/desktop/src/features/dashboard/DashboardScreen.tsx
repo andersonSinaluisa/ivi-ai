@@ -39,11 +39,11 @@ export function DashboardScreen() {
 
   const services = status
     ? [
-        { name: "Ollama", ok: status.ollama.ok, detail: status.ollama.detail },
+        { name: "Servidor (Ollama)", ok: status.ollama.ok, detail: status.ollama.detail },
         { name: `Modelo ${status.model.name}`, ok: status.model.ok, detail: status.model.detail },
         { name: "windows-agent", ok: status.windowsAgent.ok, detail: status.windowsAgent.ok ? `${status.windowsAgent.toolCount} herramientas` : status.windowsAgent.detail },
         { name: "Voz", ok: voice.connection === "open", detail: voice.connection === "open" ? VOICE_LABEL[voice.state] : (voice.unavailableReason ?? "sin conexión") },
-        { name: "Memoria local", ok: status.database.ok, detail: status.database.detail },
+        { name: "Base local", ok: status.database.ok, detail: status.database.detail },
       ]
     : [];
 

@@ -14,7 +14,6 @@ const DEFAULT_TOML: &str = include_str!("../../../../config/jarvis.toml");
 #[derive(Debug, Clone, Deserialize)]
 pub struct LlmSection {
     pub provider: String,
-    pub base_url: String,
     pub model: String,
     pub temperature: f32,
     pub num_ctx: u32,
@@ -48,9 +47,16 @@ pub struct VoiceSection {
     pub base_url: String,
 }
 
+/// Servidor (Cloud Core) que se propone al emparejar. Modelos, voz y memoria van por él.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct CloudSection {
+    #[serde(default)]
+    pub default_url: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct MemorySection {
-    /// Modelo de embeddings de Ollama. Si no está instalado se usa el respaldo léxico.
+    /// Modelo de embeddings en el Ollama del servidor. Si no está, se usa el respaldo léxico.
     #[serde(default = "default_embedding_model")]
     pub embedding_model: String,
     /// Recuerdos que se envían al modelo por instrucción.
@@ -81,6 +87,8 @@ pub struct FileConfig {
     pub voice: VoiceSection,
     #[serde(default)]
     pub memory: MemorySection,
+    #[serde(default)]
+    pub cloud: CloudSection,
 }
 
 /// Lo que el usuario cambia desde la UI.
@@ -88,7 +96,6 @@ pub struct FileConfig {
 #[serde(rename_all = "camelCase")]
 pub struct UserSettings {
     pub model: Option<String>,
-    pub base_url: Option<String>,
     pub temperature: Option<f32>,
     pub num_ctx: Option<u32>,
     pub think: Option<bool>,
@@ -115,7 +122,7 @@ pub struct InferenceSettings {
 impl Default for InferenceSettings {
     fn default() -> Self {
         Self {
-            mode: crate::infrastructure::llm::gateway::InferenceMode::Local,
+            mode: crate::infrastructure::llm::gateway::InferenceMode::Server,
             remote_kind: "ollama".into(),
             remote_url: String::new(),
             remote_model: String::new(),
@@ -131,7 +138,7 @@ impl InferenceSettings {
             return Err("el proveedor remoto debe ser 'ollama' u 'openai'".into());
         }
         if self.remote_url.trim().is_empty() {
-            return if self.mode == crate::infrastructure::llm::gateway::InferenceMode::Local {
+            return if self.mode == crate::infrastructure::llm::gateway::InferenceMode::Server {
                 Ok(())
             } else {
                 Err("falta la URL del proveedor remoto".into())
@@ -155,7 +162,6 @@ impl InferenceSettings {
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub model: String,
-    pub base_url: String,
     pub temperature: f32,
     pub num_ctx: u32,
     pub think: bool,
@@ -194,7 +200,6 @@ impl AppConfig {
         let f = &self.file;
         Settings {
             model: self.user.model.clone().unwrap_or_else(|| f.llm.model.clone()),
-            base_url: self.user.base_url.clone().unwrap_or_else(|| f.llm.base_url.clone()),
             temperature: self.user.temperature.unwrap_or(f.llm.temperature),
             num_ctx: self.user.num_ctx.unwrap_or(f.llm.num_ctx),
             think: self.user.think.unwrap_or(f.llm.think),
@@ -212,11 +217,10 @@ impl AppConfig {
     /// # Errors
     /// Si no se puede escribir el archivo.
     pub fn save_settings(&mut self, s: &Settings) -> Result<(), String> {
-        if !s.base_url.starts_with("http://") && !s.base_url.starts_with("https://") {
-            return Err("la URL de Ollama debe empezar por http:// o https://".into());
+        if s.model.trim().is_empty() {
+            return Err("falta el modelo".into());
         }
         self.user.model = Some(s.model.trim().to_owned());
-        self.user.base_url = Some(s.base_url.trim().to_owned());
         self.user.temperature = Some(s.temperature.clamp(0.0, 2.0));
         self.user.num_ctx = Some(s.num_ctx.clamp(1024, 262_144));
         self.user.think = Some(s.think);
@@ -281,7 +285,7 @@ mod tests {
     fn the_shipped_config_parses_with_safe_defaults() {
         let file: FileConfig = toml::from_str(DEFAULT_TOML).expect("toml");
         assert_eq!(file.llm.provider, "ollama");
-        assert!(file.llm.base_url.starts_with("http://127.0.0.1"));
+        assert!(file.cloud.default_url.starts_with("https://"));
         assert!(file.voice.base_url.starts_with("http://127.0.0.1"));
         assert!(!file.policy.auto_approve.iter().any(|s| s == "DESTRUCTIVE"));
     }
@@ -304,7 +308,7 @@ mod tests {
         assert_eq!(s2.auto_approve, vec![RiskClass::ReadOnly]);
         assert!(dir.path().join("settings.json").is_file());
 
-        s.base_url = "file:///etc".into();
+        s.model = "  ".into();
         assert!(cfg.save_settings(&s).is_err());
     }
 }

@@ -1,9 +1,9 @@
-//! Inference Gateway (ADR-014 del Cloud Core): el agente habla con un único `LlmProvider` y el gateway decide si
-//! el modelo corre en esta PC (Ollama local), en un Ollama remoto o en una API compatible, sin cambiar el agente.
+//! Inference Gateway (ADR-014 del Cloud Core): el agente habla con un único `LlmProvider` y el gateway decide qué
+//! servidor responde, sin cambiar el agente. En esta PC no corre ningún modelo.
 //!
-//! - `local`: solo Ollama local.
-//! - `remote`: solo el proveedor remoto configurado.
-//! - `auto`: local; si no responde (servicio apagado o modelo no instalado) y aún no se envió texto, el remoto.
+//! - `server` (por defecto): el Ollama de tu servidor, publicado por el Cloud Core en `/ollama` y autenticado con la
+//!   credencial de este equipo.
+//! - `custom`: otro proveedor (Ollama o API compatible) con su URL y su clave.
 
 use std::sync::{Arc, RwLock};
 
@@ -12,51 +12,49 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
-use super::{ChatRequest, ChatResponse, DeltaSink, LlmDelta, LlmError, LlmProvider, ProviderHealth};
+use super::{ChatRequest, ChatResponse, DeltaSink, LlmError, LlmProvider, ProviderHealth};
 use crate::domain::ChatMessage;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum InferenceMode {
+    /// Ollama del servidor emparejado. Acepta los valores antiguos `local` y `auto`.
     #[default]
-    Local,
-    Remote,
-    Auto,
+    #[serde(alias = "local", alias = "auto")]
+    Server,
+    /// Proveedor propio. Acepta el valor antiguo `remote`.
+    #[serde(alias = "remote")]
+    Custom,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GatewayStatus {
     pub mode: InferenceMode,
-    pub remote_configured: bool,
-    pub remote_name: Option<String>,
+    pub custom_configured: bool,
+    pub custom_name: Option<String>,
     pub last_provider: Option<String>,
-    pub last_fallback: Option<String>,
 }
 
 pub struct InferenceGateway {
-    local: Arc<dyn LlmProvider>,
-    remote: RwLock<Option<Arc<dyn LlmProvider>>>,
+    server: Arc<dyn LlmProvider>,
+    custom: RwLock<Option<Arc<dyn LlmProvider>>>,
     mode: RwLock<InferenceMode>,
-    last: RwLock<(Option<String>, Option<String>)>,
-}
-
-fn can_fall_back(e: &LlmError) -> bool {
-    matches!(e, LlmError::Unavailable(_) | LlmError::ModelNotFound(_))
+    last: RwLock<Option<String>>,
 }
 
 impl InferenceGateway {
     #[must_use]
-    pub fn new(local: Arc<dyn LlmProvider>) -> Self {
-        Self { local, remote: RwLock::new(None), mode: RwLock::new(InferenceMode::Local), last: RwLock::new((None, None)) }
+    pub fn new(server: Arc<dyn LlmProvider>) -> Self {
+        Self { server, custom: RwLock::new(None), mode: RwLock::new(InferenceMode::Server), last: RwLock::new(None) }
     }
 
-    pub fn configure(&self, mode: InferenceMode, remote: Option<Arc<dyn LlmProvider>>) {
+    pub fn configure(&self, mode: InferenceMode, custom: Option<Arc<dyn LlmProvider>>) {
         if let Ok(mut m) = self.mode.write() {
             *m = mode;
         }
-        if let Ok(mut r) = self.remote.write() {
-            *r = remote;
+        if let Ok(mut c) = self.custom.write() {
+            *c = custom;
         }
     }
 
@@ -64,37 +62,33 @@ impl InferenceGateway {
         self.mode.read().map(|m| *m).unwrap_or_default()
     }
 
-    fn remote(&self) -> Option<Arc<dyn LlmProvider>> {
-        self.remote.read().ok().and_then(|r| r.clone())
+    fn custom(&self) -> Option<Arc<dyn LlmProvider>> {
+        self.custom.read().ok().and_then(|c| c.clone())
     }
 
-    fn remember(&self, provider: &dyn LlmProvider, fallback: Option<String>) {
+    fn remember(&self, provider: &dyn LlmProvider) {
         if let Ok(mut l) = self.last.write() {
-            *l = (Some(format!("{} ({})", provider.name(), provider.model())), fallback);
+            *l = Some(format!("{} ({})", provider.name(), provider.model()));
         }
     }
 
     #[must_use]
     pub fn status(&self) -> GatewayStatus {
-        let remote = self.remote();
-        let (last_provider, last_fallback) = self.last.read().map(|l| l.clone()).unwrap_or_default();
+        let custom = self.custom();
         GatewayStatus {
             mode: self.mode(),
-            remote_configured: remote.is_some(),
-            remote_name: remote.map(|r| format!("{} ({})", r.name(), r.model())),
-            last_provider,
-            last_fallback,
+            custom_configured: custom.is_some(),
+            custom_name: custom.map(|c| format!("{} ({})", c.name(), c.model())),
+            last_provider: self.last.read().map(|l| l.clone()).unwrap_or_default(),
         }
     }
 
-    /// Orden de intento según el modo.
-    fn chain(&self) -> Result<Vec<Arc<dyn LlmProvider>>, LlmError> {
-        match (self.mode(), self.remote()) {
-            (InferenceMode::Local, _) => Ok(vec![self.local.clone()]),
-            (InferenceMode::Remote, Some(remote)) => Ok(vec![remote]),
-            (InferenceMode::Remote, None) => Err(LlmError::Unavailable("no hay un proveedor remoto configurado".into())),
-            (InferenceMode::Auto, Some(remote)) => Ok(vec![self.local.clone(), remote]),
-            (InferenceMode::Auto, None) => Ok(vec![self.local.clone()]),
+    fn current(&self) -> Result<Arc<dyn LlmProvider>, LlmError> {
+        match self.mode() {
+            InferenceMode::Server => Ok(self.server.clone()),
+            InferenceMode::Custom => {
+                self.custom().ok_or_else(|| LlmError::Unavailable("no hay un proveedor propio configurado".into()))
+            }
         }
     }
 }
@@ -106,68 +100,31 @@ impl LlmProvider for InferenceGateway {
     }
 
     fn model(&self) -> String {
-        match (self.mode(), self.remote()) {
-            (InferenceMode::Remote, Some(r)) => r.model(),
-            _ => self.local.model(),
-        }
+        self.current().map_or_else(|_| self.server.model(), |p| p.model())
     }
 
     async fn health(&self) -> Result<ProviderHealth, LlmError> {
-        let mut last = LlmError::Unavailable("sin proveedores".into());
-        for provider in self.chain()? {
-            match provider.health().await {
-                Ok(h) => return Ok(ProviderHealth { version: format!("{}: {}", provider.name(), h.version) }),
-                Err(e) => last = e,
-            }
-        }
-        Err(last)
+        let provider = self.current()?;
+        let h = provider.health().await?;
+        Ok(ProviderHealth { version: format!("{}: {}", provider.name(), h.version) })
     }
 
     async fn list_models(&self) -> Result<Vec<String>, LlmError> {
-        let chain = self.chain()?;
-        chain[0].list_models().await
+        self.current()?.list_models().await
     }
 
     async fn chat_stream(&self, request: ChatRequest, on_delta: DeltaSink<'_>, cancel: &CancellationToken) -> Result<ChatResponse, LlmError> {
-        let chain = self.chain()?;
-        let mut fallback = None;
-        let mut last = LlmError::Unavailable("sin proveedores".into());
-        for (i, provider) in chain.iter().enumerate() {
-            let mut streamed = false;
-            let mut forward = |d: LlmDelta| {
-                streamed = true;
-                on_delta(d);
-            };
-            match provider.chat_stream(request.clone(), &mut forward, cancel).await {
-                Ok(response) => {
-                    self.remember(provider.as_ref(), fallback);
-                    return Ok(response);
-                }
-                Err(e) if i + 1 < chain.len() && !streamed && can_fall_back(&e) => {
-                    tracing::warn!(error = %e, "modelo local no disponible; se usa el proveedor remoto");
-                    fallback = Some(e.to_string());
-                    last = e;
-                }
-                Err(e) => return Err(e),
-            }
-        }
-        Err(last)
+        let provider = self.current()?;
+        let response = provider.chat_stream(request, on_delta, cancel).await?;
+        self.remember(provider.as_ref());
+        Ok(response)
     }
 
     async fn chat_structured(&self, messages: Vec<ChatMessage>, schema: Value) -> Result<Value, LlmError> {
-        let chain = self.chain()?;
-        let mut last = LlmError::Unavailable("sin proveedores".into());
-        for (i, provider) in chain.iter().enumerate() {
-            match provider.chat_structured(messages.clone(), schema.clone()).await {
-                Ok(v) => {
-                    self.remember(provider.as_ref(), None);
-                    return Ok(v);
-                }
-                Err(e) if i + 1 < chain.len() && can_fall_back(&e) => last = e,
-                Err(e) => return Err(e),
-            }
-        }
-        Err(last)
+        let provider = self.current()?;
+        let value = provider.chat_structured(messages, schema).await?;
+        self.remember(provider.as_ref());
+        Ok(value)
     }
 }
 
@@ -176,12 +133,13 @@ mod tests {
     use super::*;
     use crate::infrastructure::llm::ollama::{OllamaOptions, OllamaProvider};
     use crate::infrastructure::llm::openai_compat::{OpenAiCompatOptions, OpenAiCompatProvider};
+    use crate::infrastructure::llm::Auth;
     use serde_json::json;
     use std::time::Duration;
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
-    fn local(base: &str) -> Arc<dyn LlmProvider> {
+    fn server_provider(base: &str, token: Option<&str>) -> Arc<dyn LlmProvider> {
         Arc::new(
             OllamaProvider::new(OllamaOptions {
                 base_url: base.into(),
@@ -190,13 +148,13 @@ mod tests {
                 num_ctx: 4096,
                 think: false,
                 request_timeout: Duration::from_secs(5),
-                api_key: None,
+                auth: Auth::fixed(token.map(str::to_owned)),
             })
-            .expect("local"),
+            .expect("server"),
         )
     }
 
-    async fn remote_server(text: &str) -> (MockServer, Arc<dyn LlmProvider>) {
+    async fn custom_server(text: &str) -> (MockServer, Arc<dyn LlmProvider>) {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/v1/chat/completions"))
@@ -209,12 +167,12 @@ mod tests {
         let provider: Arc<dyn LlmProvider> = Arc::new(
             OpenAiCompatProvider::new(OpenAiCompatOptions {
                 base_url: format!("{}/v1", server.uri()),
-                model: "remoto".into(),
+                model: "propio".into(),
                 api_key: None,
                 temperature: 0.0,
                 request_timeout: Duration::from_secs(5),
             })
-            .expect("remote"),
+            .expect("custom"),
         );
         (server, provider)
     }
@@ -224,45 +182,55 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn auto_falls_back_to_the_remote_provider_when_ollama_is_down() {
-        let (_server, remote) = remote_server("respuesta remota").await;
-        let gateway = InferenceGateway::new(local("http://127.0.0.1:9"));
-        gateway.configure(InferenceMode::Auto, Some(remote));
-        let r = gateway.chat_stream(ask(), &mut |_| {}, &CancellationToken::new()).await.expect("chat");
-        assert_eq!(r.content, "respuesta remota");
-        let status = gateway.status();
-        assert!(status.last_provider.expect("último").starts_with("openai-compatible"));
-        assert!(status.last_fallback.is_some());
-    }
-
-    #[tokio::test]
-    async fn local_mode_never_uses_the_remote_and_remote_mode_needs_one() {
-        let (_server, remote) = remote_server("no debería usarse").await;
-        let gateway = InferenceGateway::new(local("http://127.0.0.1:9"));
-        gateway.configure(InferenceMode::Local, Some(remote.clone()));
-        assert!(matches!(gateway.chat_stream(ask(), &mut |_| {}, &CancellationToken::new()).await, Err(LlmError::Unavailable(_))));
-
-        gateway.configure(InferenceMode::Remote, None);
-        assert!(matches!(gateway.chat_stream(ask(), &mut |_| {}, &CancellationToken::new()).await, Err(LlmError::Unavailable(_))));
-
-        gateway.configure(InferenceMode::Remote, Some(remote));
-        let r = gateway.chat_stream(ask(), &mut |_| {}, &CancellationToken::new()).await.expect("remoto");
-        assert_eq!(r.content, "no debería usarse");
-        assert_eq!(gateway.model(), "remoto");
-    }
-
-    #[tokio::test]
-    async fn other_errors_do_not_trigger_a_fallback() {
-        let local_server = MockServer::start().await;
+    async fn server_mode_sends_the_device_credential_to_the_server_ollama() {
+        let server = MockServer::start().await;
         Mock::given(method("POST"))
-            .and(path("/api/chat"))
-            .respond_with(ResponseTemplate::new(500).set_body_json(json!({"error": "falló el modelo"})))
-            .mount(&local_server)
+            .and(path("/ollama/api/chat"))
+            .and(header("authorization", "Bearer jwt-del-device"))
+            .respond_with(ResponseTemplate::new(200).set_body_raw(
+                format!("{}\n", json!({"message":{"role":"assistant","content":"hola desde el servidor"},"done":true,"done_reason":"stop"})),
+                "application/x-ndjson",
+            ))
+            .mount(&server)
             .await;
-        let (_server, remote) = remote_server("x").await;
-        let gateway = InferenceGateway::new(local(&local_server.uri()));
-        gateway.configure(InferenceMode::Auto, Some(remote));
-        let e = gateway.chat_stream(ask(), &mut |_| {}, &CancellationToken::new()).await.expect_err("500");
-        assert!(matches!(e, LlmError::Http { status: 500, .. }));
+        let gateway = InferenceGateway::new(server_provider(&format!("{}/ollama", server.uri()), Some("jwt-del-device")));
+        let r = gateway.chat_stream(ask(), &mut |_| {}, &CancellationToken::new()).await.expect("chat");
+        assert_eq!(r.content, "hola desde el servidor");
+        assert!(gateway.status().last_provider.expect("último").starts_with("ollama"));
+    }
+
+    #[tokio::test]
+    async fn unpaired_or_rejected_devices_get_a_clear_error() {
+        let gateway = InferenceGateway::new(server_provider("", None));
+        let e = gateway.chat_stream(ask(), &mut |_| {}, &CancellationToken::new()).await.expect_err("sin servidor");
+        assert!(matches!(&e, LlmError::Unavailable(m) if m.contains("Infraestructura")), "{e}");
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST")).and(path("/ollama/api/chat")).respond_with(ResponseTemplate::new(401)).mount(&server).await;
+        let gateway = InferenceGateway::new(server_provider(&format!("{}/ollama", server.uri()), Some("revocado")));
+        let e = gateway.chat_stream(ask(), &mut |_| {}, &CancellationToken::new()).await.expect_err("401");
+        assert!(matches!(&e, LlmError::Unavailable(m) if m.contains("credencial")), "{e}");
+    }
+
+    #[tokio::test]
+    async fn custom_mode_uses_only_the_custom_provider() {
+        let (_server, custom) = custom_server("respuesta propia").await;
+        let gateway = InferenceGateway::new(server_provider("http://127.0.0.1:9", None));
+        gateway.configure(InferenceMode::Custom, None);
+        assert!(matches!(gateway.chat_stream(ask(), &mut |_| {}, &CancellationToken::new()).await, Err(LlmError::Unavailable(_))));
+        gateway.configure(InferenceMode::Custom, Some(custom));
+        let r = gateway.chat_stream(ask(), &mut |_| {}, &CancellationToken::new()).await.expect("propio");
+        assert_eq!(r.content, "respuesta propia");
+        assert_eq!(gateway.model(), "propio");
+        gateway.configure(InferenceMode::Server, None);
+        assert_eq!(gateway.model(), "qwen3:4b");
+    }
+
+    #[test]
+    fn old_mode_values_still_load() {
+        for (old, new) in [("\"local\"", InferenceMode::Server), ("\"auto\"", InferenceMode::Server), ("\"remote\"", InferenceMode::Custom)] {
+            assert_eq!(serde_json::from_str::<InferenceMode>(old).expect("modo"), new);
+        }
+        assert_eq!(serde_json::to_string(&InferenceMode::Server).expect("json"), "\"server\"");
     }
 }

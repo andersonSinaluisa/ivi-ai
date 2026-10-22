@@ -137,12 +137,3 @@ class ManualInput:
     def push(self, frame: np.ndarray) -> None:
         if self._cb:
             self._cb(frame)
-
-
-def record_blocking(seconds: float, device: int | None) -> np.ndarray:
-    """Graba una muestra (para perfiles de voz). Devuelve int16 a 16 kHz."""
-    if sd is None:
-        raise RuntimeError(audio_available()[1])
-    data = sd.rec(int(seconds * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype="int16", device=device)
-    sd.wait()
-    return data[:, 0].copy()

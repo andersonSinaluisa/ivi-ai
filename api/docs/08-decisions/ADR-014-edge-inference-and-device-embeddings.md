@@ -1,6 +1,6 @@
 # ADR-014 — Inferencia en el borde y vectores calculados por los devices
 
-- **Status:** Accepted
+- **Status:** Accepted · puntos 1 y 5 sustituidos por [ADR-017](ADR-017-server-model-services.md) (modelos en el servidor por defecto)
 - **Fecha:** 2026-10-22
 - **Precisa:** [ADR-010](ADR-010-llm-independence.md) (sigue vigente: el Cloud no conoce modelos de lenguaje, prompts ni credenciales de IA).
 

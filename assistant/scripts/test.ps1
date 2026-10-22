@@ -1,7 +1,6 @@
 ﻿# Ejecuta todas las pruebas: Rust, interfaz y servicio de voz.
 # Pruebas de integracion reales (opcionales):
-#   $env:JARVIS_TEST_OLLAMA = '1'   -> prueba contra Ollama en 127.0.0.1:11434 (modelo: $env:JARVIS_TEST_MODEL, por defecto qwen3:4b)
-#   $env:JARVIS_TEST_WHISPER = '1'  -> transcribe con el modelo whisper "tiny" real
+#   $env:JARVIS_TEST_OLLAMA = '1'   -> prueba contra un Ollama real (modelo: $env:JARVIS_TEST_MODEL, por defecto qwen3:4b)
 
 $root = Split-Path -Parent $PSScriptRoot
 $results = [ordered]@{}

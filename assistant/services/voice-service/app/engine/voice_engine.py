@@ -27,8 +27,7 @@ from ..audio.devices import AudioInput, AudioOutput
 from ..audio.signal import chime, int16_to_float, level
 from ..audio.vad import EnergyVad
 from ..config.settings import FRAME_SAMPLES, SAMPLE_RATE, VoiceSettings
-from ..speakers.profiles import SpeakerProfileStore
-from ..stt.whisper import SttProvider
+from ..stt.base import SttProvider
 from ..tts.base import FallbackTts, Speech, TtsCache, TtsProvider, split_sentences
 from ..wake_word.detector import WakeWordDetector
 from .events import EventBus
@@ -38,6 +37,15 @@ log = logging.getLogger(__name__)
 S = VoiceState
 FRAME_MS = 1000 * FRAME_SAMPLES // SAMPLE_RATE
 MAX_SPEAK_CHARS = 4_000
+
+
+def _server_code(exc: BaseException, default: str) -> str:
+    """``server_auth`` si el servidor rechazó la credencial: la app la renueva al recibir ese evento."""
+    while exc is not None:
+        if getattr(exc, "auth", False):
+            return "server_auth"
+        exc = exc.__cause__  # type: ignore[assignment]
+    return default
 
 
 class VoiceEngine:
@@ -50,7 +58,6 @@ class VoiceEngine:
         audio_in: AudioInput,
         audio_out: AudioOutput,
         bus: EventBus,
-        profiles: SpeakerProfileStore | None = None,
         cache: TtsCache | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -61,7 +68,6 @@ class VoiceEngine:
         self.audio_in = audio_in
         self.audio_out = audio_out
         self.bus = bus
-        self.profiles = profiles
         self.cache = cache
         self.clock = clock
 
@@ -270,7 +276,7 @@ class VoiceEngine:
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
-            self._fail("stt_failed", f"No pude transcribir el audio: {exc}")
+            self._fail(_server_code(exc, "stt_failed"), f"No pude transcribir el audio: {exc}")
             return
         if self.state != S.TRANSCRIBING:
             return  # se canceló mientras transcribía
@@ -346,13 +352,12 @@ class VoiceEngine:
     # ------------------------------------------------------------------ habla
 
     def _synthesize(self, text: str) -> Speech:
-        voice = self.profiles.active_voice() if self.profiles else None
-        voice_id = voice.id if voice and self.tts.supports_cloning else None
         expected = self.tts.primary.name if isinstance(self.tts, FallbackTts) else self.tts.name
-        key = TtsCache.key(expected, voice_id, self.settings.tts_speed, text) if self.cache else ""
+        cache_id = getattr(self.tts, "cache_id", expected)
+        key = TtsCache.key(cache_id, self.settings.tts_speed, text) if self.cache else ""
         if self.cache and (hit := self.cache.get(key)):
             return hit
-        speech = self.tts.synthesize(text, voice, self.settings.tts_speed)
+        speech = self.tts.synthesize(text, self.settings.tts_speed)
         if self.cache and speech.provider == expected:
             self.cache.put(key, speech)
         return speech
@@ -388,7 +393,7 @@ class VoiceEngine:
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
-            self._fail("tts_failed", f"No pude generar la voz: {exc}")
+            self._fail(_server_code(exc, "tts_failed"), f"No pude generar la voz: {exc}")
             return
         finally:
             if pending is not None:

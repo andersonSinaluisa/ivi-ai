@@ -1,7 +1,7 @@
 # Despliegue en el VPS de Contabo (Cloud Core + memoria)
 
-> Estado: **preparado, no ejecutado.** Nada de este documento se ha aplicado al VPS. Cada paso que cambia el servidor
-> requiere la autorización explícita del owner, y se hace a mano siguiendo este orden.
+> Estado: desplegado por el owner en `jarvis.brix-dev.com` (oct. 2026). Cada paso que cambia el servidor se hace a
+> mano siguiendo este orden.
 
 Este documento cubre el despliegue del Cloud Core con los módulos nuevos (memoria, sincronización, experiencias,
 habilidades y jobs, [ADR-013](../08-decisions/ADR-013-memory-module-in-cloud-core.md) a
@@ -12,13 +12,14 @@ habilidades y jobs, [ADR-013](../08-decisions/ADR-013-memory-module-in-cloud-cor
 
 | Componente | Dónde | Notas |
 |---|---|---|
-| `jarvis-api` | Docker, red del host, `127.0.0.1:8080/8081` | Sin cambios de forma; ahora incluye `/api/v1/sync`, `/memories`, `/experiences`, `/skills`, `/jobs`, `/health` |
+| `jarvis-api` | Docker, red del host, `127.0.0.1:${JARVIS_API_PORT:-8080}` y métricas en `${JARVIS_METRICS_PORT:-8081}` | Sin cambios de forma; ahora incluye `/api/v1/sync`, `/memories`, `/experiences`, `/skills`, `/jobs`, `/health` |
 | `jarvis-worker` | Docker, red del host, **sin puertos** | Nuevo. Jobs del catálogo cerrado (ADR-016). Lee los backups en solo lectura |
 | `mosquitto` | Docker, `8883` público (TLS) y `1883` en loopback | Sin cambios |
 | PostgreSQL | **El existente del host** | Base dedicada `jarvis` y roles `jarvis_*` propios. No se cambia su configuración global ni otras bases |
 | pgvector | Opcional | Si el paquete del sistema está instalado se activa **solo** en la base `jarvis`. Si no, la búsqueda por similitud se hace en la aplicación |
 | nginx | **El existente del host** | Un sitio propio (`jarvis.conf`) con nombres prefijados `jarvis_`; `nginx -t` antes de recargar y restauración automática si falla |
-| Ollama, Qwen, VibeVoice | **No se instalan** | La inferencia sigue en el escritorio. Ver [Inferencia remota opcional](#inferencia-remota-opcional) |
+| `jarvis-stt` / `jarvis-tts` | Docker (`deploy/voice`), red del host, `127.0.0.1:9100` / `:9200` | Transcripción (faster-whisper) y voz (Piper) en CPU. Ver [Servicios de modelos](#servicios-de-modelos-y-voz-adr-017) |
+| Ollama (Qwen y embeddings) | **Del owner** (no lo instala `deploy.sh`) | Debe responder en `127.0.0.1:11434`; nginx lo publica en `/ollama/` |
 
 Lo que **nunca** se hace: publicar PostgreSQL, borrar o parar contenedores que no sean `jarvis-*`/`mosquitto` del
 proyecto `jarvis`, sobrescribir secretos existentes, cambiar `postgresql.conf`, ejecutar migraciones destructivas, ni
@@ -111,56 +112,71 @@ esquema `memory`— cifrada con `age`, escribe `SHA256SUMS` y deja los `.age` le
 `backup.verify` del worker comprueba antigüedad, cabecera `age` y suma; la restauración de prueba se hace fuera del VPS,
 donde está la clave privada.
 
-## Inferencia remota opcional (Qwen en el VPS)
+## Servicios de modelos y voz (ADR-017)
 
-El Cloud Core **no** ejecuta modelos: Ollama es un servicio aparte del owner. Si está en el VPS, se publica por el nginx
-de Jarvis con TLS y un token, nunca abriendo el puerto 11434:
+En la PC no corre ningún modelo: Qwen, los embeddings de la memoria, la transcripción y la voz están en el servidor.
+El Cloud Core **no** los ejecuta (ADR-010): son procesos aparte en `127.0.0.1` que nginx publica exigiendo la **misma
+credencial que la API** (`auth_request` a `/api/v1/access/check`). Al emparejar la PC queda todo configurado: no hay
+tokens que copiar, y revocar el equipo le corta también modelos y voz.
 
-1. Ollama escucha solo en loopback: `ss -tlnp 'sport = :11434'` debe mostrar `127.0.0.1:11434`. Si muestra `0.0.0.0` o
-   `*`, en `systemctl edit ollama` poner `Environment="OLLAMA_HOST=127.0.0.1:11434"` (o publicar el contenedor como
-   `127.0.0.1:11434:11434`) y reiniciar Ollama.
-2. Ruta con token (la plantilla del sitio incluye `/etc/nginx/jarvis-extra/*.conf`, que `deploy.sh` no sobrescribe):
+| Ruta pública | Servicio local | Quién lo levanta |
+|---|---|---|
+| `/ollama/` | Ollama en `127.0.0.1:11434` | El owner (ver abajo) |
+| `/stt/` | `jarvis-stt` en `127.0.0.1:9100` | `deploy.sh` (`deploy/voice/compose.yml`) |
+| `/tts/` | `jarvis-tts` en `127.0.0.1:9200` | `deploy.sh` (`deploy/voice/compose.yml`) |
 
-   ```bash
-   TOKEN=$(openssl rand -hex 32); echo "$TOKEN"     # guárdalo: va en la app
-   sudo install -d -m 0750 /etc/nginx/jarvis-extra
-   sed "s/__TOKEN__/$TOKEN/" deploy/nginx/extra/ollama.conf.example | sudo tee /etc/nginx/jarvis-extra/ollama.conf >/dev/null
-   sudo chmod 0640 /etc/nginx/jarvis-extra/ollama.conf
-   sudo nginx -t && sudo systemctl reload nginx
-   curl -H "Authorization: Bearer $TOKEN" https://<dominio>/ollama/api/tags   # lista los modelos
-   ```
-3. En la app: Configuración → **Modelos** → «Ollama remoto», URL `https://<dominio>/ollama`, modelo tal como aparece en
-   `ollama list`, clave = el token (se guarda en el Administrador de credenciales). Preferencia «Remoto» si la PC no
-   tiene Ollama; «Automático» para usar el local y caer al VPS.
+### Ollama
 
-Sin GPU, Qwen en el VPS responde despacio (`qwen3:4b` en CPU: varios segundos por respuesta) y compite por RAM con
-PostgreSQL. Los embeddings de la memoria siguen calculándose en la PC; sin Ollama local la memoria usa búsqueda léxica.
-
-## Transcripción de voz en el VPS (opcional)
-
-`jarvis-stt` (`deploy/optional/stt/`) es un servicio aparte del Cloud Core —igual que Ollama— con faster-whisper en
-CPU. El escritorio sigue capturando el micrófono y detectando las frases; solo envía el audio de cada frase (WAV de
-16 kHz) por HTTPS con un token. Útil si la PC no puede descargar el modelo o es lenta.
+Debe escuchar solo en loopback (`ss -tlnp 'sport = :11434'` → `127.0.0.1:11434`) y tener los modelos:
 
 ```bash
-cd /opt/jarvis/compose/deploy/optional/stt
-sudo docker compose up -d --build                 # descarga el modelo la primera vez (base ≈ 145 MB)
-curl -s http://127.0.0.1:9100/health; echo        # {"status":"ok","model":"base","ready":true,...}
-
-STT_TOKEN=$(openssl rand -hex 32); echo "$STT_TOKEN"
-sed "s/__TOKEN__/$STT_TOKEN/" ../../nginx/extra/stt.conf.example | sudo tee /etc/nginx/jarvis-extra/stt.conf >/dev/null
-sudo chmod 0640 /etc/nginx/jarvis-extra/stt.conf
-sudo nginx -t && sudo systemctl reload nginx
-curl -H "Authorization: Bearer $STT_TOKEN" https://<dominio>/stt/health
+ollama pull qwen3:4b                 # o el modelo elegido en Configuración → Modelo
+ollama pull qwen3-embedding:0.6b     # memoria por significado (sin él, búsqueda por palabras)
 ```
 
-En la app: Configuración → Voz → Transcripción → URL `https://<dominio>/stt`, el token → «Guardar y usar el servidor».
-El token se guarda en `%LOCALAPPDATA%\Jarvis\secrets\stt-remote-token`, nunca en `voice.json`.
+Si Ollama vive en un contenedor de otro proyecto (p. ej. `loop-ollama-1` en la red `loop_loop`), sin publicar puertos
+ni tocar ese proyecto se expone en loopback con un reenviador:
 
-| Variable (`.env` junto a `compose.yml`) | Por defecto | Notas |
+```bash
+sudo docker run -d --name jarvis-ollama-proxy --restart unless-stopped \
+  --network loop_loop -p 127.0.0.1:11434:11434 \
+  --read-only --cap-drop ALL --security-opt no-new-privileges:true --memory 32m \
+  alpine/socat tcp-listen:11434,fork,reuseaddr tcp-connect:ollama:11434
+sudo docker exec loop-ollama-1 ollama pull qwen3-embedding:0.6b
+```
+
+### Voz
+
+`deploy.sh` construye y levanta `jarvis-stt` y `jarvis-tts` (omitir con `--skip-voice`). La primera vez descargan
+sus modelos en volúmenes (`base` ≈ 145 MB; voz `es_MX-claude-high` ≈ 110 MB):
+
+```bash
+sudo docker compose -f /opt/jarvis/compose/deploy/voice/compose.yml logs -f      # progreso de la descarga
+curl -s http://127.0.0.1:9100/health; echo                                       # "ready": true
+curl -s http://127.0.0.1:9200/health; echo
+```
+
+| Variable (`deploy/voice/.env`) | Por defecto | Notas |
 |---|---|---|
 | `WHISPER_MODEL` | `base` | `tiny` más rápido; `small` más preciso y ~3× más lento en CPU |
-| `WHISPER_THREADS` | `2` | Hilos de CPU por transcripción (las peticiones se atienden de una en una) |
-| `STT_MEM_LIMIT` / `STT_CPUS` | `1500m` / `2.0` | Para que no compita con PostgreSQL ni con otros servicios |
+| `PIPER_VOICE` | `es_MX-claude-high` | Otras: `es_MX-ald-medium`, `es_ES-davefx-medium` |
+| `STT_MEM_LIMIT` / `STT_CPUS` | `1500m` / `2.0` | Límites para no competir con PostgreSQL |
+| `TTS_MEM_LIMIT` / `TTS_CPUS` | `768m` / `1.0` | |
 
-Privacidad: el audio de cada frase sale de la PC hacia tu VPS (cifrado en tránsito); el servidor no lo guarda.
+### Comprobar desde fuera
+
+```bash
+TOKEN=$(curl -s -X POST https://<dominio>/api/v1/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"<owner>","password":"<contraseña>"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["accessToken"])')
+curl -s -o /dev/null -w '%{http_code}\n' https://<dominio>/ollama/api/tags          # 401 sin credencial
+curl -s -H "Authorization: Bearer $TOKEN" https://<dominio>/ollama/api/tags           # modelos
+curl -s -H "Authorization: Bearer $TOKEN" https://<dominio>/stt/health
+curl -s -H "Authorization: Bearer $TOKEN" https://<dominio>/tts/health
+```
+
+Si antes se configuraron rutas con token propio en `/etc/nginx/jarvis-extra/` (`ollama.conf`, `stt.conf`),
+`deploy.sh` las renombra a `.disabled` porque chocarían con las de la plantilla.
+
+Privacidad: el audio de cada frase y el texto de cada respuesta viajan de la PC a tu servidor (cifrados en tránsito);
+los servicios no los guardan ni registran su contenido. Piper es GPL-3.0 (se ejecuta sin modificar como servicio
+aparte); cada voz tiene su licencia en su ficha de `rhasspy/piper-voices`.

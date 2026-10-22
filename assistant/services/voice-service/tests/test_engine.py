@@ -277,11 +277,10 @@ def test_output_levels_follow_the_spoken_audio(tmp_path):
 
     class LoudTts:
         name = "loud"
-        supports_cloning = False
         ready = True
         detail = "tono"
 
-        def synthesize(self, text, voice, speed):
+        def synthesize(self, text, speed):
             t = np.arange(16_000 * 0.4) / 16_000
             return Speech((0.5 * np.sin(2 * np.pi * 220 * t)).astype(np.float32), 16_000, "loud")
 

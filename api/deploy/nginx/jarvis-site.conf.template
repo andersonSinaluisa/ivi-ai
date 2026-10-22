@@ -95,8 +95,61 @@ server {
     proxy_pass http://jarvis_api;
   }
 
-  # Rutas opcionales del owner que deploy.sh no gestiona (p. ej. Ollama remoto, ver contabo-deployment.md).
-  # Sobreviven a cada despliegue; si la carpeta está vacía no se incluye nada.
+  # ---- Servicios del owner junto al Cloud Core (ADR-010: el Cloud Core no ejecuta modelos; estos son procesos aparte
+  # en 127.0.0.1). Exigen la MISMA credencial que la API: nginx pregunta al Cloud Core (auth_request) y el token no
+  # llega al servicio. Un device revocado pierde el acceso. Si un servicio no está levantado, responde 502.
+  location = /_jarvis_access {
+    internal;
+    proxy_pass http://jarvis_api/api/v1/access/check;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Request-Id $request_id;
+    proxy_read_timeout 5s;
+  }
+
+  # Ollama (Qwen y embeddings). Debe escuchar solo en 127.0.0.1:11434.
+  location ^~ /ollama/ {
+    auth_request /_jarvis_access;
+    limit_req zone=jarvis_api burst=20 nodelay;
+    limit_req_status 429;
+    client_max_body_size 4m;           # historial + herramientas en cada petición
+    proxy_set_header Authorization "";
+    proxy_set_header Host 127.0.0.1:11434;
+    proxy_set_header Connection "";
+    proxy_buffering off;               # respuestas en streaming
+    proxy_read_timeout 600s;           # en CPU una respuesta larga tarda
+    proxy_send_timeout 600s;
+    proxy_pass http://127.0.0.1:11434/;
+  }
+
+  # jarvis-stt (faster-whisper), deploy/voice.
+  location ^~ /stt/ {
+    auth_request /_jarvis_access;
+    limit_req zone=jarvis_api burst=10 nodelay;
+    limit_req_status 429;
+    client_max_body_size 10m;          # el servidor limita a 120 s de audio
+    proxy_set_header Authorization "";
+    proxy_set_header Connection "";
+    proxy_read_timeout 120s;
+    proxy_pass http://127.0.0.1:9100/;
+  }
+
+  # jarvis-tts (Piper), deploy/voice.
+  location ^~ /tts/ {
+    auth_request /_jarvis_access;
+    limit_req zone=jarvis_api burst=10 nodelay;
+    limit_req_status 429;
+    client_max_body_size 64k;          # solo texto
+    proxy_set_header Authorization "";
+    proxy_set_header Connection "";
+    proxy_read_timeout 120s;
+    proxy_pass http://127.0.0.1:9200/;
+  }
+
+  # Rutas propias del owner que deploy.sh no gestiona; sobreviven a cada despliegue (vacía = nada).
   include /etc/nginx/jarvis-extra/*.conf;
 
   location / { return 404; }

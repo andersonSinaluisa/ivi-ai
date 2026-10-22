@@ -3,7 +3,7 @@
 # Docker solo ejecuta jarvis-api, jarvis-worker y mosquitto. Idempotente: sirve para el primer despliegue y para actualizaciones.
 #
 # Uso (como root o con sudo, desde cualquier directorio):
-#   sudo ./deploy/scripts/deploy.sh [--owner-email <email>] [--skip-build] [--skip-certbot] [--skip-nginx]
+#   sudo ./deploy/scripts/deploy.sh [--owner-email <email>] [--skip-build] [--skip-certbot] [--skip-nginx] [--skip-voice]
 #
 # Requiere deploy/.env (ver deploy/.env.example) con al menos JARVIS_DOMAIN y CERTBOT_EMAIL.
 #
@@ -15,7 +15,8 @@
 #   4. Certificado Let's Encrypt (webroot, vía el nginx del host) + copia para Mosquitto
 #   5. Mosquitto (Docker) + bootstrap de Dynamic Security (solo la primera vez)
 #   6. Imágenes de la API y del worker + migraciones (rol jarvis_migrator; solo aditivas, ver runbooks.md)
-#   7. jarvis-api (Docker, red del host, 127.0.0.1:$JARVIS_API_PORT) + readiness; jarvis-worker + healthcheck
+#   7. jarvis-api (Docker, red del host, 127.0.0.1:$JARVIS_API_PORT) + readiness; jarvis-worker + healthcheck;
+#      voz (deploy/voice: jarvis-stt y jarvis-tts, salvo --skip-voice); comprueba Ollama en 127.0.0.1:11434
 #   8. Sitio nginx nativo (nginx -t antes de recargar)
 #   9. Hook de renovación de certbot
 #  10. Owner inicial (opcional, contraseña por teclado)
@@ -27,6 +28,7 @@ OWNER_EMAIL=""
 SKIP_BUILD=0
 SKIP_CERTBOT=0
 SKIP_NGINX=0
+SKIP_VOICE=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -34,6 +36,7 @@ while [ $# -gt 0 ]; do
     --skip-build) SKIP_BUILD=1; shift ;;
     --skip-certbot) SKIP_CERTBOT=1; shift ;;
     --skip-nginx) SKIP_NGINX=1; shift ;;
+    --skip-voice) SKIP_VOICE=1; shift ;;
     -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
@@ -239,9 +242,40 @@ done
 [ "$(docker inspect -f '{{.State.Health.Status}}' "$(compose ps -q jarvis-worker)")" = "healthy" ] || die "jarvis-worker is not healthy: docker compose logs jarvis-worker"
 ok "jarvis-worker healthy (sin puertos; backups montados en solo lectura)"
 
+# Servicios del owner que nginx publica con la credencial de Jarvis (/ollama, /stt, /tts).
+if [ "$SKIP_VOICE" -eq 0 ]; then
+  for port in 9100 9200; do
+    if ss -tlnH "sport = :$port" 2>/dev/null | grep -q . && ! docker compose -f "$DEPLOY_DIR/voice/compose.yml" ps -q 2>/dev/null | grep -q .; then
+      die "Port $port is in use by another service (jarvis-stt uses 9100, jarvis-tts 9200). Free it or run with --skip-voice."
+    fi
+  done
+  if [ "$SKIP_BUILD" -eq 0 ]; then
+    docker compose -f "$DEPLOY_DIR/voice/compose.yml" up -d --build
+  else
+    docker compose -f "$DEPLOY_DIR/voice/compose.yml" up -d
+  fi
+  ok "jarvis-stt (127.0.0.1:9100) y jarvis-tts (127.0.0.1:9200) arrancando; la primera vez descargan sus modelos (ver: docker compose -f deploy/voice/compose.yml logs -f)"
+else
+  warn "--skip-voice: sin transcripción ni voz en el servidor"
+fi
+if curl -fsS --max-time 3 http://127.0.0.1:11434/api/version >/dev/null 2>&1; then
+  ok "Ollama responde en 127.0.0.1:11434 (publicado en /ollama/ con la credencial de Jarvis)"
+else
+  warn "Ollama no responde en 127.0.0.1:11434: /ollama/ dará 502. Ver contabo-deployment.md (Ollama en el VPS)"
+fi
+
 # ---------------------------------------------------------------------------------------------------------------------
 log "8/10 nginx (sitio $NGINX_SITE)"
 if [ "$SKIP_NGINX" -eq 0 ]; then
+  # Las rutas /ollama, /stt y /tts ahora vienen en la plantilla (credencial de Jarvis). Las versiones antiguas con
+  # token propio en jarvis-extra chocarían con ellas: se desactivan (no se borran).
+  install -d -m 0750 /etc/nginx/jarvis-extra
+  for old in ollama stt tts; do
+    if [ -f "/etc/nginx/jarvis-extra/$old.conf" ]; then
+      mv "/etc/nginx/jarvis-extra/$old.conf" "/etc/nginx/jarvis-extra/$old.conf.disabled"
+      warn "/etc/nginx/jarvis-extra/$old.conf desactivado (renombrado a .disabled): la ruta /$old/ ya está en la plantilla"
+    fi
+  done
   install_nginx_site full
   curl -fsS --max-time 5 --resolve "$JARVIS_DOMAIN:443:127.0.0.1" "https://$JARVIS_DOMAIN/health/live" >/dev/null \
     && ok "https://$JARVIS_DOMAIN/health/live responde vía nginx" \

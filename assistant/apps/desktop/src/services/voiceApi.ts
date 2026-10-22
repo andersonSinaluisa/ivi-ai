@@ -1,19 +1,14 @@
 // REST del servicio de voz (siempre en 127.0.0.1, con token).
-import type { AudioDevice, VoiceHealth, VoiceProfile } from "@jarvis/shared-types";
+import type { AudioDevice, VoiceHealth, VoiceServerCheck } from "@jarvis/shared-types";
 
 export interface VoiceConfig {
   input_device: number | null;
   output_device: number | null;
   volume: number;
   listening_enabled: boolean;
+  /** "server" (voz de tu servidor, por defecto), "sapi" (voz de Windows) o "silent". */
   tts_provider: string;
   tts_speed: number;
-  whisper_model: string;
-  /** "faster-whisper" (en esta PC) o "remote" (servidor jarvis-stt). */
-  stt_provider: string;
-  stt_remote_url: string;
-  /** El token nunca se devuelve: solo si está guardado. */
-  stt_remote_token_set: boolean;
   wake_word_enabled: boolean;
   [key: string]: unknown;
 }
@@ -51,46 +46,14 @@ export class VoiceApi {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
-  /** Guarda el token del servidor de transcripción (vacío lo borra). */
-  setRemoteSttToken = (token: string) =>
-    this.req<VoiceConfig>("/stt/remote-token", {
+  /** Entrega al servicio de voz la URL del servidor y el token del equipo (solo en memoria; se renueva cada minuto). */
+  setServer = (serverUrl: string, token: string) =>
+    this.req<{ connected: boolean; url: string; check: Omit<VoiceServerCheck, "ok"> | null }>("/cloud", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ server_url: serverUrl, token }),
     });
-  checkStt = () => this.req<{ ok: boolean; provider: string; detail: string }>("/stt/check", { method: "POST" });
-  voices = () => this.req<VoiceProfile[]>("/voices");
-  activateVoice = (id: string | null) =>
-    this.req<VoiceProfile[]>("/voices/active", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-  deleteVoice = (id: string) => this.req<void>(`/voices/${encodeURIComponent(id)}`, { method: "DELETE" });
-
-  /** Importa un WAV o usa una grabación previa del micrófono (`recordingId`). */
-  createVoice(form: {
-    name: string;
-    isSelf: boolean;
-    consentConfirmed: boolean;
-    consentBy: string;
-    file?: File;
-    recordingId?: string;
-  }) {
-    const data = new FormData();
-    data.set("name", form.name);
-    data.set("is_self", String(form.isSelf));
-    data.set("consent_confirmed", String(form.consentConfirmed));
-    data.set("consent_by", form.consentBy);
-    if (form.file) data.set("file", form.file);
-    if (form.recordingId) data.set("recording_id", form.recordingId);
-    return this.req<VoiceProfile>("/voices", { method: "POST", body: data });
-  }
-
-  record = (seconds: number) =>
-    this.req<{ recordingId: string; seconds: number }>("/voices/record", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ seconds }),
-    });
+  clearServer = () => this.req<void>("/cloud", { method: "DELETE" });
+  /** Comprueba transcripción y voz en el servidor. */
+  check = () => this.req<VoiceServerCheck>("/check", { method: "POST" });
 }

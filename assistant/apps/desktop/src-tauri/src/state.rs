@@ -17,7 +17,7 @@ use crate::domain::{RiskClass, ToolSource};
 use crate::infrastructure::llm::gateway::{InferenceGateway, InferenceMode};
 use crate::infrastructure::llm::ollama::{OllamaOptions, OllamaProvider};
 use crate::infrastructure::llm::openai_compat::{OpenAiCompatOptions, OpenAiCompatProvider};
-use crate::infrastructure::llm::LlmProvider;
+use crate::infrastructure::llm::{Auth, LlmProvider};
 use crate::sync::retrieval::HybridRetriever;
 use crate::sync::secrets::{platform_vault, SecretVault};
 use crate::sync::SyncEngine;
@@ -45,9 +45,10 @@ pub struct AppState {
     pub memory: Arc<MemoryEngine>,
     /// Trabajo largo de memoria en curso (recalcular embeddings), cancelable.
     pub memory_job: Mutex<Option<CancellationToken>>,
-    /// Ollama local (también lo usan la lista de modelos y el estado).
+    /// Ollama del servidor emparejado (`<servidor>/ollama`, credencial del device). También lo usan la lista de
+    /// modelos y el estado.
     pub provider: Arc<OllamaProvider>,
-    /// Inference Gateway: lo que usa el agente (local, remoto o automático).
+    /// Inference Gateway: lo que usa el agente (servidor o proveedor propio).
     pub gateway: Arc<InferenceGateway>,
     /// Sincronización con el Cloud Core (local primero).
     pub sync: Arc<SyncEngine>,
@@ -62,16 +63,22 @@ pub struct AppState {
     pub tool_api: tokio::sync::Mutex<Option<Arc<ToolApiClient>>>,
 }
 
-fn ollama_options(cfg: &AppConfig) -> OllamaOptions {
+/// `<servidor>/ollama` del equipo emparejado; vacío si no lo está (el proveedor responde «empareja la PC»).
+#[must_use]
+pub fn server_ollama_url(sync: &SyncEngine) -> String {
+    sync.server_url().map(|u| format!("{}/ollama", u.trim_end_matches('/'))).unwrap_or_default()
+}
+
+fn ollama_options(cfg: &AppConfig, sync: &Arc<SyncEngine>) -> OllamaOptions {
     let s = cfg.settings();
     OllamaOptions {
-        base_url: s.base_url,
+        base_url: server_ollama_url(sync),
         model: s.model,
         temperature: s.temperature,
         num_ctx: s.num_ctx,
         think: s.think,
         request_timeout: Duration::from_secs(cfg.file.llm.request_timeout_secs.max(10)),
-        api_key: None,
+        auth: Auth::dynamic(sync.clone()),
     }
 }
 
@@ -104,13 +111,13 @@ pub fn configure_gateway(gateway: &InferenceGateway, cfg: &AppConfig, vault: &dy
                 num_ctx: s.num_ctx,
                 think: s.think,
                 request_timeout: timeout,
-                api_key: key,
+                auth: Auth::fixed(key),
             })
             .ok()
             .map(|p| Arc::new(p) as Arc<dyn LlmProvider>)
         }
     };
-    let mode = if remote.is_none() && inference.mode != InferenceMode::Local { InferenceMode::Local } else { inference.mode };
+    let mode = if remote.is_none() { InferenceMode::Server } else { inference.mode };
     gateway.configure(mode, remote);
 }
 
@@ -143,11 +150,11 @@ impl AppState {
             Err(e) => tracing::warn!(error = %e, "consolidación fallida"),
         }
 
-        let provider = Arc::new(OllamaProvider::new(ollama_options(&config)).map_err(|e| e.to_string())?);
-        let gateway = Arc::new(InferenceGateway::new(provider.clone()));
         let vault = platform_vault(&config.data_dir);
-        configure_gateway(&gateway, &config, vault.as_ref());
         let sync = SyncEngine::new(memory.clone(), vault.clone());
+        let provider = Arc::new(OllamaProvider::new(ollama_options(&config, &sync)).map_err(|e| e.to_string())?);
+        let gateway = Arc::new(InferenceGateway::new(provider.clone()));
+        configure_gateway(&gateway, &config, vault.as_ref());
         let registry = Arc::new(ToolRegistry::new());
         registry.register(Arc::new(GetCurrentTime::new()))?;
         registry.register(Arc::new(GetSystemInfo::new()))?;
@@ -206,7 +213,7 @@ impl AppState {
 
     pub fn apply_settings(&self) {
         let Ok(cfg) = self.config.lock() else { return };
-        self.provider.set_options(ollama_options(&cfg));
+        self.provider.set_options(ollama_options(&cfg, &self.sync));
         configure_gateway(&self.gateway, &cfg, self.vault.as_ref());
         if let Ok(mut p) = self.policy.write() {
             *p = PolicyEngine::new(policy_config(&cfg));
@@ -216,14 +223,15 @@ impl AppState {
         }
     }
 
-    /// Usa el modelo de embeddings de Ollama si responde; si no, el respaldo léxico. Si el modelo
+    /// Usa el modelo de embeddings del Ollama del servidor si responde; si no, el respaldo léxico. Si el modelo
     /// cambió, recalcula los vectores que falten.
     pub async fn select_embedder(&self) -> String {
-        let (base_url, model) = match self.config.lock() {
-            Ok(c) => (c.settings().base_url, c.file.memory.embedding_model.clone()),
+        let model = match self.config.lock() {
+            Ok(c) => c.file.memory.embedding_model.clone(),
             Err(_) => return "configuración no disponible".into(),
         };
-        let (embedder, detail) = MemoryEngine::select_embedder(&base_url, &model).await;
+        let base_url = server_ollama_url(&self.sync);
+        let (embedder, detail) = MemoryEngine::select_embedder(&base_url, &model, Auth::dynamic(self.sync.clone())).await;
         self.memory.set_embedder(embedder, detail.clone());
         let cancel = CancellationToken::new();
         if let Ok(mut job) = self.memory_job.lock() {

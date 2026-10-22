@@ -171,11 +171,21 @@ impl CloudClient {
 
     // ------------------------------------------------------------------ device
 
-    async fn token(&self, secrets: &dyn DeviceSecretSource, force: bool) -> CloudResult<String> {
+    pub(crate) async fn token(&self, secrets: &dyn DeviceSecretSource, force: bool) -> CloudResult<String> {
+        self.token_valid_for(secrets, force, chrono::Duration::seconds(30)).await
+    }
+
+    /// Token que seguirá siendo válido al menos `min_validity` (si no, se pide uno nuevo).
+    pub(crate) async fn token_valid_for(
+        &self,
+        secrets: &dyn DeviceSecretSource,
+        force: bool,
+        min_validity: chrono::Duration,
+    ) -> CloudResult<String> {
         let mut guard = self.token.lock().await;
         if !force {
             if let Some((token, expires)) = guard.as_ref() {
-                if *expires - chrono::Duration::seconds(30) > Utc::now() {
+                if *expires - min_validity > Utc::now() {
                     return Ok(token.clone());
                 }
             }

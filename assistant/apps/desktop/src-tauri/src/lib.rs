@@ -148,6 +148,8 @@ pub fn run() {
             commands::cloud::cloud_probe,
             commands::cloud::cloud_pair,
             commands::cloud::cloud_unpair,
+            commands::cloud::cloud_service_credential,
+            commands::cloud::cloud_default_url,
             commands::cloud::cloud_set_mode,
             commands::cloud::cloud_sync_now,
             commands::cloud::cloud_conflicts,

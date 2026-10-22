@@ -21,15 +21,6 @@ class TtsError(RuntimeError):
 
 
 @dataclass
-class VoiceRef:
-    """Voz de referencia activa (perfil clonado)."""
-
-    id: str
-    reference_wav: Path
-    cache_dir: Path
-
-
-@dataclass
 class Speech:
     samples: np.ndarray  # float32 mono
     sample_rate: int
@@ -38,7 +29,6 @@ class Speech:
 
 class TtsProvider(Protocol):
     name: str
-    supports_cloning: bool
 
     @property
     def ready(self) -> bool: ...
@@ -46,17 +36,16 @@ class TtsProvider(Protocol):
     @property
     def detail(self) -> str: ...
 
-    def synthesize(self, text: str, voice: VoiceRef | None, speed: float) -> Speech: ...
+    def synthesize(self, text: str, speed: float) -> Speech: ...
 
 
 class FallbackTts:
-    """Usa ``primary``; si falla (o no hay voz clonada activa), usa ``fallback``."""
+    """Usa ``primary``; si falla y hay ``fallback``, lo usa (por defecto no hay: solo el servidor)."""
 
     def __init__(self, primary: TtsProvider, fallback: TtsProvider | None) -> None:
         self.primary = primary
         self.fallback = fallback if fallback is not None and fallback is not primary else None
         self.name = primary.name
-        self.supports_cloning = primary.supports_cloning
         self.last_error: str | None = None
 
     @property
@@ -70,17 +59,23 @@ class FallbackTts:
             d += f" · respaldo {self.fallback.name}: {self.fallback.detail}"
         return d
 
-    def synthesize(self, text: str, voice: VoiceRef | None, speed: float) -> Speech:
+    @property
+    def cache_id(self) -> str:
+        return getattr(self.primary, "cache_id", self.primary.name)
+
+    def load(self) -> None:
+        if hasattr(self.primary, "load"):
+            self.primary.load()
+
+    def synthesize(self, text: str, speed: float) -> Speech:
         try:
-            if self.primary.supports_cloning and voice is None:
-                raise TtsError("no hay una voz clonada activa")
-            return self.primary.synthesize(text, voice, speed)
+            return self.primary.synthesize(text, speed)
         except Exception as exc:  # noqa: BLE001
             self.last_error = str(exc)
             if not self.fallback:
                 raise
             log.warning("TTS %s falló (%s); uso %s", self.primary.name, exc, self.fallback.name)
-            return self.fallback.synthesize(text, None, speed)
+            return self.fallback.synthesize(text, speed)
 
 
 class TtsCache:
@@ -92,8 +87,8 @@ class TtsCache:
         self.hits = 0
 
     @staticmethod
-    def key(provider: str, voice_id: str | None, speed: float, text: str) -> str:
-        raw = f"{provider}|{voice_id or '-'}|{speed:.2f}|{text}".encode()
+    def key(provider: str, speed: float, text: str) -> str:
+        raw = f"{provider}|{speed:.2f}|{text}".encode()
         return hashlib.sha256(raw).hexdigest()
 
     def get(self, key: str) -> Speech | None:
@@ -147,7 +142,6 @@ class SilentTts:
     """TTS de pruebas: un tono corto por cada carácter/50."""
 
     name = "silent"
-    supports_cloning = False
 
     def __init__(self, fail: bool = False) -> None:
         self.fail = fail
@@ -161,7 +155,7 @@ class SilentTts:
     def detail(self) -> str:
         return "sin sonido"
 
-    def synthesize(self, text: str, voice: VoiceRef | None, speed: float) -> Speech:  # noqa: ARG002
+    def synthesize(self, text: str, speed: float) -> Speech:  # noqa: ARG002
         self.calls.append(text)
         if self.fail:
             raise TtsError("fallo simulado")

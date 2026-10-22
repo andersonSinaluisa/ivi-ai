@@ -15,6 +15,8 @@ interface VoiceStore {
   outputLevel: number;
   lastTranscript: string | null;
   lastError: string | null;
+  /** Por qué el servicio de voz no puede usar el servidor (sin emparejar, sin red…). */
+  serverError: string | null;
   api: VoiceApi | null;
   client: VoiceClient | null;
   onTranscript: ((text: string) => void) | null;
@@ -28,8 +30,14 @@ interface VoiceStore {
   thinking(): void;
   stopSpeaking(): void;
   setListening(enabled: boolean): void;
+  /** Entrega al servicio de voz la URL del servidor y el token del equipo (y lo renueva). */
+  pushServerCredential(): Promise<void>;
   handle(m: VoiceServerMessage): void;
 }
+
+/** El token del device dura 10 min y Rust lo renueva con 3 min de margen: cada minuto basta. */
+export const CREDENTIAL_REFRESH_MS = 60_000;
+let credentialTimer: ReturnType<typeof setInterval> | null = null;
 
 export const useVoice = create<VoiceStore>((set, get) => ({
   connection: "disconnected",
@@ -41,6 +49,7 @@ export const useVoice = create<VoiceStore>((set, get) => ({
   outputLevel: 0,
   lastTranscript: null,
   lastError: null,
+  serverError: null,
   api: null,
   client: null,
   onTranscript: null,
@@ -72,11 +81,28 @@ export const useVoice = create<VoiceStore>((set, get) => ({
     });
     set({ client, api: new VoiceApi(conn.baseUrl, conn.token), unavailableReason: null });
     client.connect();
+    void get().pushServerCredential();
+    if (credentialTimer) clearInterval(credentialTimer);
+    credentialTimer = setInterval(() => void get().pushServerCredential(), CREDENTIAL_REFRESH_MS);
   },
 
   disconnect() {
     get().client?.close();
+    if (credentialTimer) clearInterval(credentialTimer);
+    credentialTimer = null;
     set({ client: null, api: null, connection: "disconnected" });
+  },
+
+  async pushServerCredential() {
+    const api = get().api;
+    if (!api) return;
+    try {
+      const credential = await backend().cloudServiceCredential();
+      await api.setServer(credential.serverUrl, credential.token);
+      set({ serverError: null });
+    } catch (e) {
+      set({ serverError: e instanceof Error ? e.message : String(e) });
+    }
   },
 
   pttStart: () => void get().client?.send({ type: "ptt_start" }),
@@ -111,6 +137,8 @@ export const useVoice = create<VoiceStore>((set, get) => ({
         break;
       case "error":
         set({ lastError: m.message });
+        // La credencial caducó o se revocó: pide una nueva enseguida (Rust la renueva si hace falta).
+        if (m.code === "server_auth") void get().pushServerCredential();
         break;
       default:
         break;

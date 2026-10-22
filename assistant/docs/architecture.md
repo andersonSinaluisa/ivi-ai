@@ -111,6 +111,8 @@ El modelo **nunca** ejecuta nada: propone llamadas que el backend valida.
 
 ## Voz
 
+El proceso de voz de la PC captura el micrófono, detecta las frases (VAD), la palabra de activación y reproduce el audio. La **transcripción** (faster-whisper) y la **voz** (Piper) se hacen en tu servidor (`<servidor>/stt` y `<servidor>/tts`, [ADR-017](../../api/docs/08-decisions/ADR-017-server-model-services.md)) con la credencial del equipo, que la app entrega al proceso de voz por `PUT /cloud` (solo en memoria, renovada cada minuto). Sin servidor no hay voz.
+
 ```mermaid
 stateDiagram-v2
     [*] --> IDLE
@@ -131,10 +133,10 @@ stateDiagram-v2
 ```
 
 - **Su propia voz:** mientras está en SPEAKING el micrófono no se procesa, y después hay 700 ms de enfriamiento antes de volver a buscar la palabra de activación.
-- **Ruido:** VAD por energía con umbral `max(min_rms, piso_de_ruido × 2,5)`. El piso de ruido se aprende del audio de fondo mientras espera la palabra clave y en los silencios. faster-whisper aplica además Silero VAD al transcribir.
+- **Ruido:** VAD por energía con umbral `max(min_rms, piso_de_ruido × 2,5)`. El piso de ruido se aprende del audio de fondo mientras espera la palabra clave y en los silencios. El servidor (faster-whisper) aplica además Silero VAD al transcribir.
 - **Respuestas por fragmentos:** el texto se divide en frases; mientras suena una se sintetiza la siguiente.
-- **Respaldo:** si OpenVoice falla o no hay voz clonada activa, `FallbackTts` usa la voz de Windows.
-- **Caché:** los audios se guardan por hash (motor, voz, velocidad, texto) con un límite de tamaño.
+- **Sin respaldo automático:** si el servidor no responde, la frase falla con un mensaje claro. En Configuración → Voz se puede elegir la voz de Windows a mano.
+- **Caché:** los audios se guardan por hash (servidor y voz, velocidad, texto) con un límite de tamaño.
 
 ## Datos y memoria: Neural Memory Engine
 

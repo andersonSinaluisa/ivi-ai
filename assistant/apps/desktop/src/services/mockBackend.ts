@@ -142,7 +142,6 @@ export function createMockBackend(delayMs = 30, opts: { demoGraph?: boolean } = 
   const skills: Skill[] = [];
   let settings: Settings = {
     model: "qwen3:4b",
-    baseUrl: "http://127.0.0.1:11434",
     temperature: 0.4,
     numCtx: 8192,
     think: false,
@@ -205,7 +204,7 @@ export function createMockBackend(delayMs = 30, opts: { demoGraph?: boolean } = 
       ? "Listo, cerré el Bloc de notas."
       : hits.length
         ? `Encontré ${hits.length} recuerdos relacionados (vista previa).`
-        : "Modo vista previa: no hay backend de Tauri ni Ollama conectados.";
+        : "Modo vista previa: no hay backend de Tauri ni servidor conectados.";
     for (const word of reply.split(/(?<= )/)) {
       send({ type: "token", runId, text: word });
       await sleep(delayMs / 3);
@@ -238,9 +237,9 @@ export function createMockBackend(delayMs = 30, opts: { demoGraph?: boolean } = 
   };
   let conflicts: LocalConflict[] = [];
   let inference: InferenceView = {
-    settings: { mode: "local", remoteKind: "ollama", remoteUrl: "", remoteModel: "" },
+    settings: { mode: "server", remoteKind: "ollama", remoteUrl: "", remoteModel: "" },
     hasApiKey: false,
-    status: { mode: "local", remoteConfigured: false, remoteName: null, lastProvider: null, lastFallback: null },
+    status: { mode: "server", customConfigured: false, customName: null, lastProvider: null },
     vault: "vista previa (sin almacén real)",
   };
 
@@ -262,7 +261,7 @@ export function createMockBackend(delayMs = 30, opts: { demoGraph?: boolean } = 
     getMessages: async () => [],
     deleteConversation: async () => true,
     getStatus: async () => ({
-      ollama: { ok: false, detail: "Vista previa sin backend", version: null },
+      ollama: { ok: false, detail: "Vista previa sin servidor", version: null },
       model: { ok: false, detail: "sin comprobar", name: settings.model, installed: false, alternatives: [] },
       windowsAgent: { ok: false, detail: "sin comprobar", toolCount: 0 },
       database: { ok: true, detail: "simulada" },
@@ -475,19 +474,27 @@ export function createMockBackend(delayMs = 30, opts: { demoGraph?: boolean } = 
       conflicts = conflicts.filter((c) => c.id !== conflictId);
       return { ...cloud, conflicts: conflicts.length };
     },
+    async cloudServiceCredential() {
+      if (!cloud.paired || !cloud.baseUrl) throw new Error("este equipo no está emparejado con tu servidor");
+      return { serverUrl: cloud.baseUrl, token: "token-de-vista-previa" };
+    },
+    cloudDefaultUrl: async () => "https://jarvis.brix-dev.com",
     getInference: async () => inference,
     async updateInference(settings, apiKey) {
-      if (settings.mode !== "local" && !settings.remoteUrl.trim()) throw new Error("falta la URL del proveedor remoto");
-      const remote = settings.remoteUrl.trim() !== "";
+      if (settings.mode === "custom" && !settings.remoteUrl.trim()) throw new Error("falta la URL del proveedor propio");
+      const custom = settings.remoteUrl.trim() !== "";
       inference = {
         ...inference,
         settings,
         hasApiKey: apiKey === "" ? false : apiKey ? true : inference.hasApiKey,
-        status: { ...inference.status, mode: settings.mode, remoteConfigured: remote, remoteName: remote ? `${settings.remoteKind} (${settings.remoteModel})` : null },
+        status: { ...inference.status, mode: custom ? settings.mode : "server", customConfigured: custom, customName: custom ? `${settings.remoteKind} (${settings.remoteModel})` : null },
       };
       return inference;
     },
-    testInference: async () => ({ ok: false, detail: "vista previa: no hay Ollama ni proveedor remoto conectados" }),
+    testInference: async () =>
+      cloud.paired
+        ? { ok: true, detail: "ollama: 0.40.6 (vista previa)" }
+        : { ok: false, detail: "este equipo no está conectado a tu servidor. Empareja la PC en Configuración → Infraestructura" },
     async onVisualEvent(cb) {
       listeners.add(cb);
       return () => listeners.delete(cb);

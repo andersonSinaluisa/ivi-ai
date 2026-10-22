@@ -1,4 +1,4 @@
-//! Integración Escritorio ↔ Cloud Core real (escenarios A, B, C, D, F y G del encargo).
+//! Integración Escritorio ↔ Cloud Core real (escenarios A, B, C, D, F, G y H).
 //!
 //! Necesita un Cloud Core corriendo (`ivi/tests/desktop-cloud/run-local.sh` lo levanta con PostgreSQL y Mosquitto
 //! nativos) y estas variables: `JARVIS_CLOUD_IT_URL`, `JARVIS_CLOUD_IT_EMAIL`, `JARVIS_CLOUD_IT_PASSWORD`.
@@ -321,4 +321,26 @@ async fn scenario_g_restore_from_a_validated_backup() {
     assert_eq!(report.rejected, 0, "{report:?}");
     assert_eq!(c.sync.status().pending, 0);
     assert_eq!(c.sync.status().mode, SyncMode::Hybrid);
+}
+
+/// H: la credencial del equipo emparejado abre los servicios del servidor (lo que nginx comprueba con
+/// `auth_request` para /ollama, /stt y /tts); un equipo sin emparejar no tiene credencial.
+#[tokio::test]
+async fn scenario_h_the_device_credential_opens_the_server_services() {
+    use jarvis_desktop_lib::infrastructure::llm::BearerSource;
+    let cloud = require_cloud!();
+    let pc = Pc::new(Arc::new(HashingEmbedder::default()));
+    assert!(pc.sync.bearer().await.is_none(), "sin emparejar no hay credencial");
+    pc.pair(&cloud, "pc-servicios").await;
+    assert_eq!(pc.sync.server_url().as_deref(), Some(cloud.url.trim_end_matches('/')));
+    let token = pc.sync.bearer().await.expect("token del device");
+    let check = reqwest::Client::new()
+        .get(format!("{}/api/v1/access/check", cloud.url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("check");
+    assert_eq!(check.status().as_u16(), 204);
+    let anonymous = reqwest::Client::new().get(format!("{}/api/v1/access/check", cloud.url)).send().await.expect("check");
+    assert_eq!(anonymous.status().as_u16(), 401);
 }

@@ -17,7 +17,6 @@ export interface SystemStatus {
 
 export interface Settings {
   model: string;
-  baseUrl: string;
   temperature: number;
   numCtx: number;
   think: boolean;

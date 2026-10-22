@@ -1,0 +1,45 @@
+# Voz en el VPS: jarvis-stt (faster-whisper) y jarvis-tts (Piper). Proyecto compose propio, aparte del Cloud Core.
+#   cd /opt/jarvis/compose/deploy/voice && sudo docker compose up -d --build
+# Escuchan SOLO en 127.0.0.1 (9100 y 9200, red del host). nginx los publica en /stt/ y /tts/ exigiendo la credencial
+# de Jarvis (auth_request al Cloud Core). Los modelos se descargan una vez y se conservan en volúmenes.
+name: jarvis-voice
+
+x-hardening: &hardening
+  network_mode: host
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 100
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  jarvis-stt:
+    <<: *hardening
+    build: ./stt
+    image: jarvis-stt:local
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}      # tiny | base | small (en CPU, small ya es lento)
+      WHISPER_THREADS: ${WHISPER_THREADS:-2}
+    volumes:
+      - stt-models:/models
+    mem_limit: ${STT_MEM_LIMIT:-1500m}
+    cpus: ${STT_CPUS:-2.0}
+
+  jarvis-tts:
+    <<: *hardening
+    build: ./tts
+    image: jarvis-tts:local
+    environment:
+      PIPER_VOICE: ${PIPER_VOICE:-es_MX-claude-high}   # otras: es_MX-ald-medium, es_ES-davefx-medium
+    volumes:
+      - tts-models:/models
+    mem_limit: ${TTS_MEM_LIMIT:-768m}
+    cpus: ${TTS_CPUS:-1.0}
+
+volumes:
+  stt-models:
+  tts-models:

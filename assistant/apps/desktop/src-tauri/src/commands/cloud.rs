@@ -48,12 +48,45 @@ pub async fn cloud_pair(state: State<'_, Arc<AppState>>, request: PairRequest) -
     if name.is_empty() || name.chars().count() > 64 {
         return Err("el nombre del equipo debe tener entre 1 y 64 caracteres".into());
     }
-    state.sync.pair(&request.url, request.email.trim(), &request.password, name).await.map_err(err)
+    let status = state.sync.pair(&request.url, request.email.trim(), &request.password, name).await.map_err(err)?;
+    // Modelos, embeddings y voz pasan a usar el servidor recién emparejado.
+    state.apply_settings();
+    let s = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        let detail = s.select_embedder().await;
+        tracing::info!(%detail, "memoria tras emparejar");
+    });
+    Ok(status)
 }
 
 #[tauri::command]
 pub fn cloud_unpair(state: State<'_, Arc<AppState>>) -> CmdResult<SyncStatus> {
-    state.sync.unpair()
+    let status = state.sync.unpair()?;
+    state.apply_settings();
+    Ok(status)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceCredential {
+    /// URL del servidor emparejado; la voz usa `<url>/stt` y `<url>/tts`.
+    pub server_url: String,
+    /// Token de acceso del device (caduca; la UI lo vuelve a pedir antes y lo entrega al servicio de voz local).
+    pub token: String,
+}
+
+/// Credencial para que el servicio de voz local (127.0.0.1) hable con el servidor en nombre de este equipo.
+#[tauri::command]
+pub async fn cloud_service_credential(state: State<'_, Arc<AppState>>) -> CmdResult<ServiceCredential> {
+    let server_url = state.sync.server_url().ok_or("este equipo no está emparejado con tu servidor")?;
+    let token = state.sync.service_token().await.map_err(err)?;
+    Ok(ServiceCredential { server_url, token })
+}
+
+/// Servidor que se propone al emparejar (`[cloud] default_url` de jarvis.toml).
+#[tauri::command]
+pub fn cloud_default_url(state: State<'_, Arc<AppState>>) -> CmdResult<String> {
+    Ok(state.config.lock().map_err(err)?.file.cloud.default_url.clone())
 }
 
 #[tauri::command]

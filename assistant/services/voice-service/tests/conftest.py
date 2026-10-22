@@ -7,8 +7,7 @@ from app.audio.devices import ManualInput, NullOutput
 from app.config.settings import FRAME_SAMPLES, SAMPLE_RATE, VoiceSettings
 from app.engine.events import EventBus
 from app.engine.voice_engine import VoiceEngine
-from app.speakers.profiles import SpeakerProfileStore
-from app.stt.whisper import ScriptedStt
+from app.stt.base import ScriptedStt
 from app.tts.base import FallbackTts, SilentTts, TtsCache
 from app.wake_word.detector import DisabledDetector
 
@@ -46,7 +45,6 @@ def make_engine(tmp_path, *, texts=None, detector=None, tts=None, settings=None,
         audio_in=audio_in,
         audio_out=audio_out,
         bus=bus,
-        profiles=SpeakerProfileStore(tmp_path / "voices"),
         cache=TtsCache(tmp_path / "cache", settings.tts_cache_max_mb),
         clock=clock or FakeClock(),
     )

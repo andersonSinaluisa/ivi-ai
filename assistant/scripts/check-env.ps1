@@ -25,9 +25,9 @@ $os = Get-CimInstance Win32_OperatingSystem
 Show 'Windows' $true "$($os.Caption) $($os.Version)"
 $drive = (Get-Item $root).PSDrive
 $freeGb = [math]::Round($drive.Free / 1GB, 1)
-$diskOk = $freeGb -ge 8
-Show "Disco $($drive.Name):" $diskOk "$freeGb GB libres (recomendado: 8 GB sin OpenVoice, 15 GB con OpenVoice y un modelo Qwen mediano)"
-if (-not $diskOk) { $problems += "Libera espacio en $($drive.Name): o mueve los modelos de Ollama con la variable OLLAMA_MODELS." }
+$diskOk = $freeGb -ge 5
+Show "Disco $($drive.Name):" $diskOk "$freeGb GB libres (recomendado: 5 GB para compilar; los modelos estan en el servidor)"
+if (-not $diskOk) { $problems += "Libera espacio en $($drive.Name):" }
 
 # Node
 $node = Version-Of 'node' '--version'
@@ -66,32 +66,23 @@ $pyOk = [bool]$found
 Show 'Python 3.11/3.12' $pyOk ($(if ($pyOk) { "$($found.Version) ($($found.Display))" } else { 'no encontrado. Instala con: winget install -e --id Python.Python.3.11' }))
 if (-not $pyOk) { $problems += 'Instala Python 3.11 (el servicio de voz lo requiere).' }
 
-# Ollama
-$ollama = Version-Of 'ollama' '--version'
-Show 'Ollama (CLI)' ([bool]$ollama) ($(if ($ollama) { $ollama } else { 'no instalado (https://ollama.com/download)' }))
-$models = @()
-try {
-    $v = Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/version' -TimeoutSec 3
-    Show 'Ollama (servidor)' $true "responde, version $($v.version)"
-    $tags = Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 5
-    $models = @($tags.models | ForEach-Object { $_.name })
-    $qwen = @($models | Where-Object { $_ -like 'qwen*' })
-    Show 'Modelos Qwen' ($qwen.Count -gt 0) ($(if ($qwen.Count) { $qwen -join ', ' } else { 'ninguno. Ejecuta: ollama pull qwen3:4b' }))
-    if (-not $qwen.Count) { $problems += 'Descarga un modelo Qwen: ollama pull qwen3:4b' }
-} catch {
-    Show 'Ollama (servidor)' $false 'no responde en 127.0.0.1:11434 (abre la app de Ollama u "ollama serve")'
-    $problems += 'Inicia Ollama.'
+# Servidor (Cloud Core): modelos, transcripcion y voz estan alli; en esta PC no corre ningun modelo.
+$toml = Join-Path $root 'config\jarvis.toml'
+$server = $null
+if (Test-Path $toml) {
+    $line = Select-String -Path $toml -Pattern '^\s*default_url\s*=\s*"([^"]+)"' | Select-Object -First 1
+    if ($line) { $server = $line.Matches[0].Groups[1].Value }
 }
-if ($env:OLLAMA_MODELS) { Show 'OLLAMA_MODELS' $true $env:OLLAMA_MODELS }
-
-# GPU
-$gpus = Get-CimInstance Win32_VideoController | ForEach-Object { "$($_.Name) ($([math]::Round($_.AdapterRAM / 1GB, 1)) GB informados)" }
-Show 'GPU' $true ($gpus -join '; ')
-if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
-    $smi = (& nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader 2>&1 | Out-String).Trim()
-    Show 'NVIDIA (CUDA)' $true $smi
+if ($server) {
+    try {
+        $h = Invoke-RestMethod -Uri "$server/api/v1/health" -TimeoutSec 8
+        Show 'Servidor' $true "$server responde (protocolo $($h.features.sync), busqueda $($h.features.vectorSearch))"
+    } catch {
+        Show 'Servidor' $false "$server no responde: $($_.Exception.Message)"
+        $problems += "Comprueba la conexion con $server (o cambia [cloud] default_url en config\jarvis.toml)."
+    }
 } else {
-    Show 'NVIDIA (CUDA)' $false 'sin nvidia-smi: Whisper y OpenVoice correran en CPU (mas lento)'
+    Show 'Servidor' $false 'sin [cloud] default_url en config\jarvis.toml'
 }
 
 # windows-agent

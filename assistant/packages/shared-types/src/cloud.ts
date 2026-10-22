@@ -60,7 +60,8 @@ export interface ProbeResult {
   vectorSearch: string;
 }
 
-export type InferenceMode = "local" | "remote" | "auto";
+/** "server": Ollama de tu servidor (por defecto). "custom": proveedor propio con URL y clave. */
+export type InferenceMode = "server" | "custom";
 
 export interface InferenceSettings {
   mode: InferenceMode;
@@ -72,10 +73,15 @@ export interface InferenceSettings {
 
 export interface GatewayStatus {
   mode: InferenceMode;
-  remoteConfigured: boolean;
-  remoteName: string | null;
+  customConfigured: boolean;
+  customName: string | null;
   lastProvider: string | null;
-  lastFallback: string | null;
+}
+
+/** Credencial del equipo para los servicios del servidor (la UI se la entrega al servicio de voz local). */
+export interface ServiceCredential {
+  serverUrl: string;
+  token: string;
 }
 
 export interface InferenceView {

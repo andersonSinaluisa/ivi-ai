@@ -1,4 +1,4 @@
-# jarvis-stt (opcional): faster-whisper en CPU para el servicio de voz del escritorio. No es parte del Cloud Core.
+# jarvis-stt: faster-whisper en CPU para el servicio de voz del escritorio. No es parte del Cloud Core.
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
     WHISPER_MODEL=base WHISPER_CACHE=/models HF_HOME=/models/hf

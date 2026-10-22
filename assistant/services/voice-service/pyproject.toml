@@ -1,7 +1,7 @@
 [project]
 name = "jarvis-voice-service"
 version = "0.1.0"
-description = "Servicio de voz local de Jarvis: captura, VAD, wake word, STT y TTS"
+description = "Servicio de voz de Jarvis en la PC: micrófono, VAD, wake word y altavoz; STT y TTS en el servidor"
 requires-python = ">=3.11,<3.13"
 dependencies = [
   "fastapi>=0.115",
@@ -15,12 +15,9 @@ dependencies = [
 [project.optional-dependencies]
 # Micrófono y altavoz (PortAudio). Necesario para uso real.
 audio = ["sounddevice>=0.4.7"]
-# Speech-to-Text local.
-stt = ["faster-whisper>=1.0.3"]
 # Detector de palabra de activación (opcional; ver docs/voice-wake-word.md).
 wakeword = ["openwakeword>=0.6.0"]
 dev = ["pytest>=8", "httpx>=0.27"]
-# OpenVoice V2 no está en PyPI: se instala con scripts/install-openvoice.ps1.
 
 [build-system]
 requires = ["setuptools>=69"]

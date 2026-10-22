@@ -17,15 +17,17 @@ en carpetas temporales. Nada se publicó en git (sin commit ni push).
 
 | Suite | Resultado |
 |---|---|
-| Cloud Core `dotnet test` (servicios nativos, `JARVIS_TEST_SERVICES=native`) | 225 pasan (0 omitidas) |
-| Escritorio Rust `cargo test` | 110 pasan (más 6 escenarios que solo corren con un Cloud Core real; ver abajo) |
+| Cloud Core `dotnet test` (servicios nativos, `JARVIS_TEST_SERVICES=native`) | 226 pasan (0 omitidas) |
+| Escritorio Rust `cargo test` | 111 pasan (más 7 escenarios que solo corren con un Cloud Core real; ver abajo) |
 | Escritorio `cargo clippy --all-targets -D warnings` | sin advertencias |
-| Interfaz `vitest` · `tsc --noEmit` · `vite build` | 37 pasan · OK · OK |
-| Servicio de voz `pytest` | 45 pasan · 1 omitida (Whisper real) |
+| Interfaz `vitest` · `tsc --noEmit` · `vite build` | 40 pasan · OK · OK |
+| Servicio de voz `pytest` | 42 pasan (incluye STT/TTS contra `jarvis-stt`/`jarvis-tts` reales con modelos simulados) |
+| `jarvis-stt` / `jarvis-tts` (`api/deploy/voice/*/test_server.py`) | 4 + 3 pasan |
 | windows-agent `cargo test` (sin cambios en esta fase) | 62 pasan · 4 fallan solo en Linux (rutas `C:\…` en `jarvis-policy::files`), igual que en la auditoría |
-| Escritorio ↔ Cloud Core con servicios reales, escenarios A–G (`tests/desktop-cloud/run-local.sh`) | ✅ A, B, C, D, F, G (Rust) y E (reinicio de API + worker) |
+| Escritorio ↔ Cloud Core con servicios reales, escenarios A–H (`tests/desktop-cloud/run-local.sh`) | ✅ A, B, C, D, F, G, H (Rust) y E (reinicio de API + worker) |
 | Aprovisionamiento PostgreSQL + migraciones + permisos (`tests/deploy/check-provision.sh`) | ✅ (idempotente, base ajena intacta, worker sin acceso a usuarios) |
 | Sitio nginx (`nginx -t` 1.24 y límites de cuerpo de `/api/v1/sync/push`) | ✅ 900 KB pasa · 1,1 MB → 413 · otras rutas > 64 KB → 413 |
+| nginx `auth_request` en /ollama, /stt, /tts | ✅ sin credencial o inválida → 401; válida → llega al servicio sin el token |
 
 ## Fases
 
@@ -40,7 +42,7 @@ en carpetas temporales. Nada se publicó en git (sin commit ni push).
 | 7 | Scheduler + `jarvis-worker` (catálogo cerrado, `SKIP LOCKED`, reintentos, timeouts, aprobación) | ✅ | `api/src/Jarvis.Worker` |
 | 8 | Inference Gateway en el escritorio (Ollama local, Ollama remoto, API compatible; local/remoto/auto) | ✅ con servidores simulados · 🟡 sin Ollama ni proveedor real | `src-tauri/src/infrastructure/llm/gateway.rs` |
 | 9 | Interfaz: Infraestructura, Memoria (conflictos), Modelos, nodos remotos en el Neural Core | ✅ | `apps/desktop/src/features/settings/`, `stores/graphStore.ts` |
-| 10 | VibeVoice como proveedor de voz opcional y experimental | ✅ adaptador · 🟡 modelo real no ejecutado (requiere GPU) | `services/voice-service/app/tts/vibevoice.py` |
+| 10 | VibeVoice como proveedor de voz opcional y experimental | Retirado por ADR-017 (voz con Piper en el servidor) | — |
 | 11 | Despliegue para Contabo | ✅ archivos y pruebas locales · ⛔ no ejecutado en el VPS | `api/deploy/`, `api/docs/06-infrastructure/contabo-deployment.md` |
 | 12 | Escenarios A–G | ✅ | `tests/desktop-cloud/` |
 
@@ -55,12 +57,26 @@ en carpetas temporales. Nada se publicó en git (sin commit ni push).
 | E | Reiniciar el Cloud Core sin perder tareas persistentes; el worker ejecuta jobs y pasa su healthcheck | `run-local.sh` (procesos reales reiniciados) |
 | F | Un device revocado deja de sincronizar y Jarvis sigue funcionando en local | `scenario_f_…` |
 | G | Restaurar la memoria desde un respaldo validado en una PC nueva y volver a sincronizar sin duplicados | `scenario_g_…` |
+| H | La credencial del equipo emparejado abre los servicios del servidor (lo que valida nginx); sin emparejar no hay credencial | `scenario_h_…` |
+
+## Todo por el servidor (ADR-017, 22-oct-2026)
+
+Por decisión del owner, la PC ya no ejecuta modelos: Qwen, embeddings, transcripción y voz están en el VPS, detrás de
+nginx con la credencial del device (`auth_request` → `GET /api/v1/access/check`). Sin conexión no hay chat ni voz.
+
+| Pieza | Dónde | Estado |
+|---|---|---|
+| `/api/v1/access/check` | Cloud Core | ✅ prueba de integración (usuario, device, anónimo, token falso, revocación) |
+| Rutas `/ollama/`, `/stt/`, `/tts/` con `auth_request` | `api/deploy/nginx/jarvis-site.conf.template` | ✅ nginx 1.24 local: 401 sin credencial o con una inválida; el token no llega al servicio |
+| `jarvis-stt` (faster-whisper) y `jarvis-tts` (Piper) | `api/deploy/voice/` | ✅ pruebas con modelos simulados · 🟡 imágenes Docker y modelos reales sin probar aquí |
+| Gateway y embeddings con la credencial del device | `assistant/.../src-tauri` | ✅ wiremock + escenario H contra el Cloud Core real |
+| Servicio de voz: STT/TTS remotos, credencial en memoria | `assistant/services/voice-service` | ✅ contra los servidores reales (modelos simulados) |
+| Retirados: Ollama local, Whisper local, OpenVoice, VibeVoice, perfiles de voz | escritorio y servicio de voz | ✅ |
 
 ## Lo que queda por verificar fuera de este entorno
 
 - Compilar y ejecutar el escritorio en **Windows** (Credential Manager con `keyring`, WebView2, SAPI).
-- Qwen real por Ollama (local y remoto) y un proveedor compatible real a través del gateway.
-- VibeVoice real (GPU; español solo experimental según Microsoft).
+- Qwen, faster-whisper y Piper reales en el VPS (las imágenes de `deploy/voice` no se construyeron aquí).
 - **Despliegue en el VPS**: primero `api/deploy/scripts/inspect-vps.sh` (solo lectura) con tu autorización; después
   `deploy.sh` siguiendo [contabo-deployment.md](../api/docs/06-infrastructure/contabo-deployment.md).
 - Construir las imágenes Docker (`Dockerfile`, `Dockerfile.worker`): aquí no hay Docker. El `dotnet publish` del worker

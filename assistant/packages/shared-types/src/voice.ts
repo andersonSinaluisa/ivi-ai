@@ -49,16 +49,15 @@ export interface VoiceHealth {
   tts: ComponentStatus;
   audio: ComponentStatus;
   wakeWord: WakeWordStatus;
-  /** Motores opcionales (p. ej. VibeVoice, experimental). */
-  engines?: { vibevoice?: VibeVoiceStatus };
+  /** Transcripción y voz se hacen en tu servidor con la credencial que entrega la app. */
+  server: { connected: boolean; url: string | null };
 }
 
-export interface VibeVoiceStatus {
-  configured: boolean;
-  packageInstalled: boolean;
-  torchInstalled: boolean;
-  detail: string;
-  license: string;
+/** Resultado de comprobar transcripción y voz en el servidor. */
+export interface VoiceServerCheck {
+  ok: boolean;
+  stt: { ok: boolean; detail: string };
+  tts: { ok: boolean; detail: string };
 }
 
 export interface ComponentStatus {
@@ -74,16 +73,6 @@ export interface AudioDevice {
   outputs: number;
   isDefaultInput: boolean;
   isDefaultOutput: boolean;
-}
-
-export interface VoiceProfile {
-  id: string;
-  name: string;
-  isSelf: boolean;
-  consentConfirmed: boolean;
-  consentBy: string | null;
-  createdAt: string;
-  active: boolean;
 }
 
 export interface VoiceConnection {

@@ -12,7 +12,7 @@ use futures_util::StreamExt;
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
-use super::{ChatRequest, ChatResponse, DeltaSink, LlmDelta, LlmError, LlmProvider, ProviderHealth};
+use super::{Auth, ChatRequest, ChatResponse, DeltaSink, LlmDelta, LlmError, LlmProvider, ProviderHealth};
 use crate::domain::{ChatMessage, Role, ToolCall};
 
 #[derive(Debug, Clone)]
@@ -23,8 +23,8 @@ pub struct OllamaOptions {
     pub num_ctx: u32,
     pub think: bool,
     pub request_timeout: Duration,
-    /// Token Bearer para un Ollama remoto detrás de un proxy con autenticación (None en local).
-    pub api_key: Option<String>,
+    /// Bearer para el Ollama del servidor (credencial del device) o un proxy propio.
+    pub auth: Auth,
 }
 
 pub struct OllamaProvider {
@@ -55,8 +55,14 @@ impl OllamaProvider {
         }
     }
 
-    fn url(&self, path: &str) -> String {
-        format!("{}{path}", self.options().base_url.trim_end_matches('/'))
+    fn url(&self, path: &str) -> Result<String, LlmError> {
+        let base = self.options().base_url;
+        if base.trim().is_empty() {
+            return Err(LlmError::Unavailable(
+                "este equipo no está conectado a tu servidor. Empareja la PC en Configuración → Infraestructura".into(),
+            ));
+        }
+        Ok(format!("{}{path}", base.trim_end_matches('/')))
     }
 
     fn body(&self, request: &ChatRequest, stream: bool) -> Value {
@@ -86,11 +92,12 @@ impl OllamaProvider {
     }
 
     async fn post(&self, path: &str, body: &Value) -> Result<reqwest::Response, LlmError> {
+        let token = self.options().auth.token().await;
         let response = self
             .client
-            .post(self.url(path))
+            .post(self.url(path)?)
             .timeout(self.options().request_timeout)
-            .bearer_auth_opt(self.options().api_key.as_deref())
+            .bearer_auth_opt(token.as_deref())
             .json(body)
             .send()
             .await
@@ -117,7 +124,7 @@ fn map_transport(e: reqwest::Error) -> LlmError {
     if e.is_timeout() {
         LlmError::Timeout
     } else if e.is_connect() {
-        LlmError::Unavailable(format!("no se pudo conectar con Ollama ({e}). ¿Está instalado y en ejecución?"))
+        LlmError::Unavailable(format!("no se pudo conectar con el servidor de modelos ({e}). ¿Hay Internet?"))
     } else {
         LlmError::Unavailable(e.to_string())
     }
@@ -135,6 +142,15 @@ async fn check_status(response: reqwest::Response, model: &str) -> Result<reqwes
         .unwrap_or(body);
     if status.as_u16() == 404 && message.contains("not found") {
         return Err(LlmError::ModelNotFound(model.to_owned()));
+    }
+    match status.as_u16() {
+        401 | 403 => {
+            return Err(LlmError::Unavailable(
+                "el servidor rechazó la credencial de este equipo: vuelve a emparejarlo en Configuración → Infraestructura".into(),
+            ))
+        }
+        502..=504 => return Err(LlmError::Unavailable(format!("Ollama no responde en el servidor (HTTP {status})"))),
+        _ => {}
     }
     Err(LlmError::Http { status: status.as_u16(), body: message })
 }
@@ -232,11 +248,12 @@ impl LlmProvider for OllamaProvider {
     }
 
     async fn health(&self) -> Result<ProviderHealth, LlmError> {
+        let token = self.options().auth.token().await;
         let response = self
             .client
-            .get(self.url("/api/version"))
+            .get(self.url("/api/version")?)
             .timeout(Duration::from_secs(3))
-            .bearer_auth_opt(self.options().api_key.as_deref())
+            .bearer_auth_opt(token.as_deref())
             .send()
             .await
             .map_err(map_transport)?;
@@ -246,11 +263,12 @@ impl LlmProvider for OllamaProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<String>, LlmError> {
+        let token = self.options().auth.token().await;
         let response = self
             .client
-            .get(self.url("/api/tags"))
+            .get(self.url("/api/tags")?)
             .timeout(Duration::from_secs(5))
-            .bearer_auth_opt(self.options().api_key.as_deref())
+            .bearer_auth_opt(token.as_deref())
             .send()
             .await
             .map_err(map_transport)?;
@@ -336,7 +354,7 @@ mod tests {
             num_ctx: 4096,
             think: false,
             request_timeout: Duration::from_secs(5),
-            api_key: None,
+            auth: Auth::none(),
         })
         .expect("provider")
     }
@@ -532,7 +550,7 @@ mod tests {
             num_ctx: 4096,
             think: false,
             request_timeout: Duration::from_secs(180),
-            api_key: None,
+            auth: Auth::none(),
         })
         .expect("provider");
         let version = p.health().await.expect("Ollama debe estar corriendo");

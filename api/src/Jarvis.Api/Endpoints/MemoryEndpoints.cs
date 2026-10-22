@@ -23,6 +23,12 @@ public static class MemoryEndpoints
             return Results.Ok(new HealthResponse("ok", "v1", clock.GetUtcNow(), new HealthFeatures(SyncProtocol.Version, vector)));
         }).AllowAnonymous();
 
+        // nginx `auth_request`: los servicios del owner publicados junto al Cloud Core (/ollama, /stt, /tts) aceptan
+        // la misma credencial que la API. 204 si el token es de un usuario o device activo; 401 si no (la revocación
+        // se aplica en la validación del JWT). Sin cuerpo: se llama en cada petición proxificada.
+        api.MapGet("/access/check", () => Results.NoContent())
+            .RequireAuthorization(Policies.UserOrDevice);
+
         var sync = api.MapGroup("/sync").RequireRateLimiting(Endpoints.SyncRateLimit);
         sync.MapPost("/push", async ([FromBody] PushRequest? request, HttpContext http, SyncPushHandler handler, CancellationToken ct) =>
             (await handler.HandleAsync(http.Principal(), request, ct)).ToOk(http))

@@ -327,6 +327,27 @@ public sealed class SyncTests(JarvisTestEnvironment env, ITestOutputHelper outpu
     }
 
     [Fact]
+    public async Task Access_check_accepts_active_users_and_devices_and_rejects_revoked_ones()
+    {
+        // Lo usa nginx (auth_request) para /ollama, /stt y /tts: misma credencial que la API.
+        var owner = await OwnerAsync();
+        Assert.Equal(HttpStatusCode.NoContent, (await owner.Client.GetAsync("/api/v1/access/check")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Env.CreateClient().GetAsync("/api/v1/access/check")).StatusCode);
+        var anonymous = Env.CreateClient();
+        anonymous.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "no-es-un-jwt");
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/v1/access/check")).StatusCode);
+
+        var pc = await owner.PairAsync("pc-access");
+        Assert.Equal(HttpStatusCode.NoContent, (await pc.Client.GetAsync("/api/v1/access/check")).StatusCode);
+        var revoke = await owner.Client.PostAsJsonAsync($"/api/v1/devices/{pc.Id}/revoke", new { reason = "PC robada" });
+        Assert.Equal(HttpStatusCode.OK, revoke.StatusCode);
+        await JarvisTestEnvironment.WaitForAsync(
+            async () => (await pc.Client.GetAsync("/api/v1/access/check")).StatusCode == HttpStatusCode.Unauthorized ? "ok" : null,
+            TimeSpan.FromSeconds(40),
+            "revoked device to lose access to the owner services");
+    }
+
+    [Fact]
     public async Task Push_body_limit_is_one_mebibyte_and_other_endpoints_keep_64_kib()
     {
         var owner = await OwnerAsync();

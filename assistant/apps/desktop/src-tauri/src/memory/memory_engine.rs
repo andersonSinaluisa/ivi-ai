@@ -161,8 +161,8 @@ impl MemoryEngine {
     }
 
     /// Prueba el modelo de embeddings de Ollama; si no responde, usa el respaldo léxico.
-    pub async fn select_embedder(base_url: &str, model: &str) -> (Arc<dyn EmbeddingProvider>, String) {
-        match OllamaEmbedder::new(base_url, model) {
+    pub async fn select_embedder(base_url: &str, model: &str, auth: crate::infrastructure::llm::Auth) -> (Arc<dyn EmbeddingProvider>, String) {
+        match OllamaEmbedder::new(base_url, model).map(|e| e.with_auth(auth)) {
             Ok(e) => match e.embed(&["prueba".to_owned()]).await {
                 Ok(_) => {
                     let id = e.model_id();
@@ -170,7 +170,7 @@ impl MemoryEngine {
                 }
                 Err(err) => (
                     Arc::new(HashingEmbedder::default()),
-                    format!("léxico (sin modelo semántico: {err}). Ejecuta: ollama pull {model}"),
+                    format!("léxico (sin modelo semántico en el servidor: {err}). En el servidor: ollama pull {model}"),
                 ),
             },
             Err(err) => (Arc::new(HashingEmbedder::default()), format!("léxico ({err})")),

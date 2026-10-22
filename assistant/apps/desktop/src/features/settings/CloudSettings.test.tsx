@@ -7,6 +7,7 @@ import { ModelSettings } from "./ModelSettings";
 afterEach(cleanup);
 
 async function pair() {
+  await waitFor(() => expect((screen.getByLabelText(/URL del Cloud Core/) as HTMLInputElement).value).toBe("https://jarvis.brix-dev.com"));
   fireEvent.change(screen.getByLabelText(/URL del Cloud Core/), { target: { value: "https://jarvis.example.test" } });
   fireEvent.change(screen.getByLabelText(/Correo del propietario/), { target: { value: "yo@example.test" } });
   fireEvent.change(screen.getByLabelText(/Contraseña/), { target: { value: "secreta-larga" } });
@@ -73,22 +74,25 @@ describe("Configuración → Infraestructura y Memoria", () => {
 });
 
 describe("Configuración → Modelos", () => {
-  it("guarda el proveedor remoto y la clave sin mostrarla", async () => {
+  it("por defecto usa el servidor; un proveedor propio guarda su clave sin mostrarla", async () => {
     setBackend(createMockBackend(0, { demoGraph: false }));
     render(<ModelSettings />);
-    await waitFor(() => screen.getByRole("radiogroup", { name: "Preferencia de inferencia" }));
-    fireEvent.click(screen.getByRole("radio", { name: "Automático" }));
+    await waitFor(() => screen.getByRole("radiogroup", { name: "Dónde corre el modelo" }));
+    expect(screen.getByRole("radio", { name: "Tu servidor" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByLabelText(/^URL/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Probar" }));
+    await waitFor(() => expect(screen.getByText(/Empareja la PC/)).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("radio", { name: "Proveedor propio" }));
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() => expect(screen.getByText(/falta la URL/)).toBeTruthy());
-
     fireEvent.change(screen.getByLabelText(/^URL/), { target: { value: "https://ollama.example.test" } });
     fireEvent.change(screen.getByLabelText(/Clave/), { target: { value: "sk-prueba" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
-    await waitFor(() => expect(screen.getByText("Proveedor de inferencia guardado.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Proveedor de modelos guardado.")).toBeTruthy());
     const key = screen.getByLabelText(/Clave/) as HTMLInputElement;
     expect(key.value).toBe("");
     expect(key.placeholder).toContain("guardada");
-    expect(screen.getByRole("button", { name: "Borrar" })).toBeTruthy();
-    expect(screen.getByText(/VibeVoice/)).toBeTruthy();
+    expect(screen.queryByText(/VibeVoice/)).toBeNull();
   });
 });

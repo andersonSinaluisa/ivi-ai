@@ -2,7 +2,7 @@
 
 ## Estado
 
-Aceptado, 2026-10-22.
+Aceptado, 2026-10-22. Actualizado el mismo día por [ADR-017 del Cloud Core](../../../api/docs/08-decisions/ADR-017-server-model-services.md): el proceso de voz se queda con micrófono, VAD, palabra de activación y altavoz; la transcripción y la voz se hacen en el servidor. OpenVoice se retiró.
 
 ## Contexto
 

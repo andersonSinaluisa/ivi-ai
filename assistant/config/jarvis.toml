@@ -3,14 +3,18 @@
 # Los cambios hechos desde la pantalla de Configuración se guardan en
 # %LOCALAPPDATA%\Jarvis\settings.json y tienen prioridad sobre este archivo.
 
+# Tu servidor (Cloud Core). En esta PC no corre ningún modelo: Qwen, los embeddings de la memoria, la
+# transcripción y la voz van al servidor, autenticados con la credencial de este equipo al emparejarlo.
+[cloud]
+default_url = "https://jarvis.brix-dev.com"
+
 [llm]
+# Ollama del servidor, publicado en <servidor>/ollama.
 provider = "ollama"
-base_url = "http://127.0.0.1:11434"
-# Modelo por defecto. Si no está instalado, la app lo indica y deja elegir otro Qwen instalado.
-# qwen3:4b ocupa ~2.6 GB; con más VRAM y disco conviene uno mayor (ver docs/architecture.md).
+# Modelo por defecto (tal como aparece en `ollama list` en el servidor).
 model = "qwen3:4b"
 temperature = 0.4
-# Contexto en tokens. Más contexto = más memoria de GPU.
+# Contexto en tokens. Más contexto = más memoria en el servidor.
 num_ctx = 8192
 # Los modelos Qwen3 "piensan" antes de responder; desactivarlo hace las respuestas más rápidas.
 think = false
@@ -37,11 +41,11 @@ pipe = ""
 enabled = true
 
 [voice]
-# El servicio de voz solo escucha en loopback.
+# El servicio de voz (micrófono y altavoz) solo escucha en loopback; transcribe y habla con el servidor.
 base_url = "http://127.0.0.1:8765"
 
 [memory]
-# Modelo de embeddings (búsqueda semántica). Instálalo con: ollama pull qwen3-embedding:0.6b
+# Modelo de embeddings (búsqueda semántica) en el Ollama del servidor: ollama pull qwen3-embedding:0.6b
 # Sin él, Jarvis usa un respaldo léxico (encuentra palabras, no sinónimos).
 embedding_model = "qwen3-embedding:0.6b"
 # Recuerdos que se envían a Qwen por instrucción.

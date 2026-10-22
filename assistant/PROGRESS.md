@@ -12,12 +12,12 @@ Todo se ejecutó en un entorno **Linux** de desarrollo, sin GPU, sin micrófono,
 
 | Suite | Resultado |
 |---|---|
-| Rust `cargo test` (Linux) | 110 pasan (incluye 1 real que se salta sola: `real_ollama_round_trip_with_tools`, se activa con `JARVIS_TEST_OLLAMA=1`) |
+| Rust `cargo test` (Linux) | 111 pasan (incluye 1 real que se salta sola: `real_ollama_round_trip_with_tools`, se activa con `JARVIS_TEST_OLLAMA=1`) |
 | `cargo clippy --all-targets` | sin advertencias |
-| Interfaz `vitest` | 37 pasan |
+| Interfaz `vitest` | 40 pasan |
 | Interfaz `tsc --noEmit` + `vite build` | OK (Three.js va en un fragmento aparte, cargado solo en la vista 3D) |
 | Neural Core 3D en Chromium sin GPU (SwiftShader, Playwright) | Se dibuja; la selección de un nodo con el ratón funciona; 2D y bajo consumo también |
-| Voz `pytest` (Python 3.11) | 45 pasan · 1 real omitida (Whisper, `JARVIS_TEST_WHISPER=1`) |
+| Voz `pytest` (Python 3.11) | 42 pasan (transcripción y voz contra los servidores reales con modelos simulados) |
 | Arranque real del servicio de voz (sin audio ni modelos) | Arranca, exige token y reporta cada dependencia ausente |
 | `cargo check` para Windows | **No ejecutado**: no se pudo descargar la librería estándar de Rust para Windows en este entorno |
 
@@ -60,12 +60,11 @@ Todo se ejecutó en un entorno **Linux** de desarrollo, sin GPU, sin micrófono,
 | Captura de micrófono y reproducción (sounddevice) | 🟡 no probado con hardware |
 | Micrófono y altavoz configurables, volumen, activar o desactivar la escucha | ✅ API · 🟡 hardware |
 | Eventos de nivel de audio para la visualización | ✅ |
-| faster-whisper | ✅ adaptador con modelo simulado · 🟡 modelo real (no se pudo descargar aquí) |
-| VAD de Silero al transcribir | 🟡 (`vad_filter=True`, función de faster-whisper) |
-| TTS sin clonación: voz de Windows (System.Speech) | 🟡 solo en Windows; no ejecutado |
-| Caché de audio, frases por fragmentos, respaldo si falla el motor | ✅ |
-| OpenVoice V2 (adaptador + instalador) | 🟡 escrito según su API pública; **no ejecutado** (PyTorch + checkpoints) |
-| Perfiles de voz: grabar o importar WAV, consentimiento obligatorio, activo, borrar | ✅ API · 🟡 grabación con micrófono real |
+| Transcripción (faster-whisper) | En el servidor desde ADR-017 (ver Fase 7) |
+| VAD de Silero al transcribir | 🟡 en el servidor (`vad_filter=True`) |
+| Voz | En el servidor (Piper) desde ADR-017 · voz de Windows elegible a mano (🟡 solo en Windows; no ejecutada) |
+| Caché de audio y frases por fragmentos | ✅ |
+| OpenVoice V2 y perfiles de voz clonada | Retirados (ADR-017) |
 | Pantalla de configuración de voz | ✅ compila · 🟡 sin servicio real conectado |
 | Palabra de activación | 🟡 adaptador openWakeWord listo, **desactivado**. Solo existe «hey jarvis» en inglés (licencia no comercial). **No se declara funcional** (docs/voice-wake-word.md) |
 | Interrumpir la respuesta (botón «Callar» o pulsar para hablar) | ✅ |
@@ -123,12 +122,22 @@ Detalle de toda la refactorización (Cloud Core, despliegue y escenarios A–G):
 | Configuración → Infraestructura, Memoria y Modelos | ✅ (vitest + capturas en Chromium) |
 | VibeVoice opcional | ✅ adaptador por comando externo · 🟡 modelo real no ejecutado |
 
+## Fase 7: Todo por el servidor (ADR-017)
+
+| Ítem | Estado |
+|---|---|
+| Qwen y embeddings en `<servidor>/ollama` con la credencial del device (sin Ollama local) | ✅ con servidores simulados y contra el Cloud Core real (escenario H) · 🟡 sin Ollama real |
+| Transcripción en `<servidor>/stt` (jarvis-stt, faster-whisper) y voz en `<servidor>/tts` (jarvis-tts, Piper) | ✅ contra los servidores reales con modelos simulados · 🟡 modelos reales no ejecutados aquí (Hugging Face bloqueado) |
+| nginx `auth_request` a `/api/v1/access/check` para /ollama, /stt, /tts | ✅ (nginx 1.24 local + prueba de integración del Cloud Core, incluida la revocación) |
+| Credencial entregada al servicio de voz (solo en memoria, renovada cada minuto y ante un 401) | ✅ |
+| Retirados: Ollama local, Whisper local, OpenVoice y perfiles de voz, VibeVoice | ✅ |
+
 ## Problemas conocidos
 
 - **Embeddings reales sin probar:** si `qwen3-embedding:0.6b` no está instalado, la memoria usa búsqueda léxica (funciona, pero entiende peor los sinónimos).
 - **drei** (ayudas de React Three Fiber) se descartó: ocupaba ~96 MB en `node_modules` y el disco va justo. Se usan los controles de cámara de Three.js directamente.
 
-- **Disco:** había ~5 GB libres. Rust necesita ~2 GB para compilar y `qwen3:4b` ocupa ~2,6 GB. OpenVoice no cabe sin liberar espacio.
+- **Disco:** Rust necesita ~2 GB para compilar; los modelos ya no ocupan espacio en la PC.
 - **vitest 3** tiene avisos de seguridad (solo afectan a herramientas de prueba, no a la app; `npm audit --omit=dev` = 0). vitest 4.1.12 no instala con npm 10.9 por una dependencia peer mal publicada; se actualizará cuando se corrija.
 - **serde_yaml** está archivado; funciona, pero conviene reemplazarlo más adelante.
 - El servicio de voz no lo arranca Tauri: hay que usar `scripts\dev.ps1` o `scripts\start-voice.ps1`.

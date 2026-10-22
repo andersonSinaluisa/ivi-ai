@@ -30,16 +30,11 @@ class VoiceSettings(BaseModel):
     volume: float = Field(0.9, ge=0.0, le=1.0)
     listening_enabled: bool = True
 
-    #: "faster-whisper" (en esta PC) o "remote" (servidor jarvis-stt; el token va aparte, en secrets/).
-    stt_provider: str = "faster-whisper"
-    stt_remote_url: str = ""
-    stt_remote_timeout_s: float = Field(60.0, ge=5.0, le=300.0)
-    whisper_model: str = "base"
-    whisper_device: str = "auto"
-    whisper_compute_type: str = "auto"
+    #: Transcripción y voz: en tu servidor (<servidor>/stt y /tts). La credencial llega de la app (PUT /cloud).
+    server_timeout_s: float = Field(60.0, ge=5.0, le=300.0)
 
-    tts_provider: str = "sapi"
-    tts_fallback: str = "sapi"
+    #: "server" (Piper en tu servidor, por defecto), "sapi" (voz de Windows) o "silent".
+    tts_provider: str = "server"
     tts_speed: float = Field(1.0, ge=0.5, le=2.0)
     tts_cache_max_mb: int = Field(200, ge=0, le=5_000)
 
@@ -55,10 +50,6 @@ class VoiceSettings(BaseModel):
     post_speech_cooldown_ms: int = Field(700, ge=0, le=5_000)
     thinking_timeout_s: int = Field(180, ge=10, le=1_800)
 
-    openvoice_checkpoints: str = "models/openvoice/checkpoints_v2"
-    # VibeVoice (opcional, experimental): comando externo con {text_file}, {out_wav} y {voice}. Ver tts/vibevoice.py.
-    vibevoice_command: list[str] = []
-    vibevoice_voice: str = "Carter"
     allowed_origins: list[str] = [
         "http://localhost:1420",
         "http://127.0.0.1:1420",
@@ -67,35 +58,13 @@ class VoiceSettings(BaseModel):
         "tauri://localhost",
     ]
 
-    @field_validator("tts_provider", "tts_fallback")
+    @field_validator("tts_provider", mode="before")
     @classmethod
     def _known_tts(cls, v: str) -> str:
-        if v not in {"sapi", "openvoice", "vibevoice", "silent"}:
-            raise ValueError("motor de voz desconocido")
-        return v
-
-    @field_validator("stt_provider")
-    @classmethod
-    def _known_stt(cls, v: str) -> str:
-        if v not in {"faster-whisper", "remote"}:
-            raise ValueError("motor de transcripción desconocido (faster-whisper o remote)")
-        return v
-
-    @field_validator("stt_remote_url")
-    @classmethod
-    def _remote_url(cls, v: str) -> str:
-        if not v.strip():
-            return ""
-        from ..stt.remote import validate_url
-
-        return validate_url(v)
-
-    @field_validator("whisper_model")
-    @classmethod
-    def _known_whisper(cls, v: str) -> str:
-        allowed = {"tiny", "base", "small", "medium", "large-v3", "turbo"}
-        if v not in allowed:
-            raise ValueError(f"modelo de whisper no soportado; usa uno de {sorted(allowed)}")
+        if v in {"openvoice", "vibevoice"}:  # motores retirados: un voice.json antiguo pasa al servidor
+            return "server"
+        if v not in {"server", "sapi", "silent"}:
+            raise ValueError("motor de voz desconocido (server, sapi o silent)")
         return v
 
     def check_binding(self) -> None:
@@ -119,9 +88,6 @@ MUTABLE_FIELDS = {
     "listening_enabled",
     "tts_provider",
     "tts_speed",
-    "whisper_model",
-    "stt_provider",
-    "stt_remote_url",
     "wake_word_enabled",
     "wake_word_threshold",
     "vad_min_rms",

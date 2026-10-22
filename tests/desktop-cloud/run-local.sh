@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prueba de integración Escritorio ↔ Cloud Core con servicios REALES y locales (Linux):
 # PostgreSQL (con pgvector) + Mosquitto (Dynamic Security) + jarvis-api, todo en 127.0.0.1 y en una carpeta temporal.
-# Después ejecuta las pruebas de Rust de assistant/…/tests/desktop_cloud.rs (escenarios A, B, C, D, F y G).
+# Después ejecuta las pruebas de Rust de assistant/…/tests/desktop_cloud.rs (escenarios A, B, C, D, F, G y H).
 #
 # Requisitos: binarios de PostgreSQL >= 15 con la extensión vector, mosquitto + mosquitto_ctrl, .NET SDK 10, cargo, openssl.
 # No toca ninguna instalación existente: puertos y datos propios; todo se borra al terminar.
@@ -98,7 +98,7 @@ start_api() {
 start_api
 curl -sf "http://127.0.0.1:$API_PORT/api/v1/health"; echo
 
-echo "==> Pruebas del escritorio contra el Cloud Core (escenarios A, B, C, D, F, G)"
+echo "==> Pruebas del escritorio contra el Cloud Core (escenarios A, B, C, D, F, G, H)"
 (cd "$ROOT/assistant/apps/desktop/src-tauri" && \
   JARVIS_CLOUD_IT_URL="http://127.0.0.1:$API_PORT" JARVIS_CLOUD_IT_EMAIL="$EMAIL" JARVIS_CLOUD_IT_PASSWORD="$PASSWORD" \
   cargo test --test desktop_cloud -- --test-threads=1 "$@")

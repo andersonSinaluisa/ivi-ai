@@ -5,16 +5,20 @@ from __future__ import annotations
 import asyncio
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
-from ..audio.devices import audio_available, list_devices, record_blocking
-from ..audio.devices import SoundDeviceInput, SoundDeviceOutput
-from ..audio.signal import decode_wav, int16_to_float
+from ..audio.devices import SoundDeviceInput, SoundDeviceOutput, audio_available, list_devices
+from ..audio.signal import decode_wav
 from ..config.security import token_matches
 from ..config.settings import SAMPLE_RATE, apply_patch, save_settings
-from ..speakers.profiles import ConsentError
 from ..wake_word.detector import build_detector
+
+
+async def check_server(c: Any) -> dict:
+    from ..main import check_server as run
+
+    return await run(c)
 
 
 def components(request: Request) -> Any:
@@ -34,8 +38,6 @@ def require_auth(
     return c
 
 
-from ..stt.remote import read_token, write_token
-from ..tts.vibevoice import vibevoice_status
 
 Auth = Annotated[Any, Depends(require_auth)]
 router = APIRouter()
@@ -56,7 +58,7 @@ def health(c: Auth) -> dict:
             "detail": e.audio_error or audio_detail,
         },
         "wakeWord": e.wake_word_status(),
-        "engines": {"vibevoice": vibevoice_status(c.settings.vibevoice_command)},
+        "server": {"connected": c.cloud.get() is not None, "url": c.cloud.server_url},
     }
 
 
@@ -67,36 +69,37 @@ def devices(c: Auth) -> list[dict]:  # noqa: ARG001
 
 @router.get("/config")
 def get_config(c: Auth) -> dict:
-    data = c.settings.model_dump(exclude={"allowed_origins", "host", "port", "allow_remote"})
-    data["stt_remote_token_set"] = read_token(c.base_dir) is not None  # el token nunca sale de la PC por la API
-    return data
+    return c.settings.model_dump(exclude={"allowed_origins", "host", "port", "allow_remote"})
 
 
-class RemoteTokenBody(BaseModel):
-    #: Vacío borra el token.
-    token: str = Field(default="", max_length=512)
+class CloudBody(BaseModel):
+    server_url: str = Field(min_length=8, max_length=512)
+    token: str = Field(min_length=1, max_length=8_192)
 
 
-@router.put("/stt/remote-token")
-def put_remote_token(c: Auth, body: RemoteTokenBody) -> dict:
-    write_token(body.token.strip() or None, c.base_dir)
-    from ..main import build_stt
-
-    c.engine.reconfigure(c.settings, stt=build_stt(c.settings, c.base_dir))
-    return get_config(c)
-
-
-@router.post("/stt/check")
-async def check_stt(c: Auth) -> dict:
-    """Comprueba el motor de transcripción actual (para «Probar» en Configuración)."""
-    stt = c.engine.stt
+@router.put("/cloud")
+async def put_cloud(c: Auth, body: CloudBody) -> dict:
+    """La app entrega la URL del servidor y el token del device (se renueva cada minuto). Solo en memoria."""
+    previous = c.cloud.get()
     try:
-        if hasattr(stt, "load"):
-            await asyncio.to_thread(stt.load)
-        ok = bool(stt.ready)
-    except Exception:  # noqa: BLE001
-        ok = False
-    return {"ok": ok, "provider": stt.name, "detail": stt.detail}
+        current = c.cloud.set(body.server_url, body.token)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    changed_server = previous is None or previous.server_url != current.server_url
+    result = await check_server(c) if (changed_server and c.check_on_credential) else None
+    return {"connected": True, "url": current.server_url, "check": result}
+
+
+@router.delete("/cloud", status_code=204)
+def delete_cloud(c: Auth) -> None:
+    c.cloud.clear()
+
+
+@router.post("/check")
+async def check(c: Auth) -> dict:
+    """Comprueba transcripción y voz en el servidor (para «Probar» en Configuración)."""
+    result = await check_server(c)
+    return {"ok": all(r["ok"] for r in result.values()), **result}
 
 
 @router.put("/config")
@@ -111,14 +114,10 @@ def put_config(c: Auth, patch: dict[str, Any]) -> dict:
         kwargs["audio_in"] = SoundDeviceInput(new.input_device)
     if new.output_device != old.output_device and audio_available()[0]:
         kwargs["audio_out"] = SoundDeviceOutput(new.output_device)
-    if (new.whisper_model, new.stt_provider, new.stt_remote_url) != (old.whisper_model, old.stt_provider, old.stt_remote_url):
-        from ..main import build_stt
+    if new.tts_provider != old.tts_provider:
+        from ..main import build_tts
 
-        kwargs["stt"] = build_stt(new, c.base_dir)
-    if new.tts_provider != old.tts_provider or new.vibevoice_command != old.vibevoice_command or new.vibevoice_voice != old.vibevoice_voice:
-        from ..main import build_tts_chain
-
-        kwargs["tts"] = build_tts_chain(new)
+        kwargs["tts"] = build_tts(new, c.cloud)
     if new.wake_word_enabled != old.wake_word_enabled:
         kwargs["detector"] = build_detector(new.wake_word_enabled, new.wake_word_model)
     c.settings = new
@@ -152,74 +151,3 @@ async def transcribe(c: Auth, file: Annotated[UploadFile, File()]) -> dict:
         samples = resample(samples, rate, SAMPLE_RATE)
     t = await asyncio.to_thread(c.engine.stt.transcribe, samples, c.settings.language)
     return {"text": t.text, "language": t.language, "durationMs": t.duration_ms}
-
-
-# ---------------------------------------------------------------- voces
-
-
-@router.get("/voices")
-def voices(c: Auth) -> list[dict]:
-    return c.profiles.list()
-
-
-class RecordBody(BaseModel):
-    seconds: float = Field(10, ge=3, le=30)
-
-
-@router.post("/voices/record")
-async def record(c: Auth, body: RecordBody) -> dict:
-    if c.engine.state.value not in ("IDLE", "LISTENING_WAKE_WORD"):
-        raise HTTPException(status_code=409, detail="Jarvis está ocupado; inténtalo en un momento")
-    try:
-        samples = await asyncio.to_thread(record_blocking, body.seconds, c.settings.input_device)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=503, detail=f"no se pudo grabar: {exc}") from exc
-    if float(abs(int16_to_float(samples)).max(initial=0.0)) < 0.01:
-        raise HTTPException(status_code=422, detail="la grabación está en silencio; revisa el micrófono")
-    return {"recordingId": c.profiles.save_recording(samples), "seconds": body.seconds}
-
-
-@router.post("/voices", status_code=201)
-async def create_voice(
-    c: Auth,
-    name: Annotated[str, Form()],
-    is_self: Annotated[bool, Form()],
-    consent_confirmed: Annotated[bool, Form()],
-    consent_by: Annotated[str, Form()] = "",
-    file: Annotated[UploadFile | None, File()] = None,
-    recording_id: Annotated[str | None, Form()] = None,
-) -> dict:
-    try:
-        if file is not None:
-            wav = await file.read()
-        elif recording_id:
-            wav = c.profiles.take_recording(recording_id)
-        else:
-            raise ValueError("adjunta un WAV o graba una muestra")
-        profile = c.profiles.create(name, is_self, consent_confirmed, consent_by or None, wav)
-    except ConsentError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return {**profile.__dict__, "active": False}
-
-
-class ActiveBody(BaseModel):
-    id: str | None
-
-
-@router.put("/voices/active")
-def set_active(c: Auth, body: ActiveBody) -> list[dict]:
-    try:
-        c.profiles.set_active(body.id)
-    except (KeyError, ValueError) as exc:
-        raise HTTPException(status_code=404, detail="perfil no encontrado") from exc
-    return c.profiles.list()
-
-
-@router.delete("/voices/{pid}", status_code=204)
-def delete_voice(c: Auth, pid: str) -> None:
-    try:
-        c.profiles.delete(pid)
-    except (KeyError, ValueError) as exc:
-        raise HTTPException(status_code=404, detail="perfil no encontrado") from exc

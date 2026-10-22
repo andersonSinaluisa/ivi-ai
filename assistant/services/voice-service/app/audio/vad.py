@@ -1,8 +1,8 @@
 """Detección de actividad de voz por energía con piso de ruido adaptativo.
 
 Decide cuándo empieza y termina la instrucción en tiempo real. Es deliberadamente simple: no
-depende de modelos y se adapta al ruido de la habitación. faster-whisper aplica además su propio
-VAD (Silero) al transcribir, que limpia los silencios internos.
+depende de modelos y se adapta al ruido de la habitación. El servidor (faster-whisper) aplica además
+su propio VAD (Silero) al transcribir, que limpia los silencios internos.
 """
 
 from __future__ import annotations

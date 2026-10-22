@@ -7,7 +7,7 @@ from starlette.websockets import WebSocketDisconnect
 from app.audio.devices import ManualInput, NullOutput
 from app.config.settings import VoiceSettings
 from app.main import build_components, create_app
-from app.stt.whisper import ScriptedStt
+from app.stt.base import ScriptedStt
 from app.tts.base import FallbackTts, SilentTts
 from app.wake_word.detector import DisabledDetector
 
@@ -23,7 +23,7 @@ def setup(tmp_path, monkeypatch):
         detector=DisabledDetector(),
         audio_in=ManualInput(),
         audio_out=NullOutput(),
-        preload_stt=False,
+        check_on_credential=False,
     )
     with TestClient(create_app(c)) as client:
         yield client, c
@@ -115,21 +115,6 @@ def test_websocket_ptt_round_trip_and_reconnect(setup):
     with client.websocket_connect("/ws") as ws:
         ws.send_json({"type": "auth", "token": c.token})
         assert ws.receive_json() == {**c.engine.snapshot()}
-
-
-def test_voice_profile_endpoints_enforce_consent(setup):
-    from tests.test_profiles import wav
-
-    client, c = setup
-    files = {"file": ("voz.wav", wav(4), "audio/wav")}
-    r = client.post("/voices", headers=auth(c), data={"name": "Ana", "is_self": "false", "consent_confirmed": "true"}, files=files)
-    assert r.status_code == 403
-    r = client.post("/voices", headers=auth(c), data={"name": "Yo", "is_self": "true", "consent_confirmed": "true"}, files=files)
-    assert r.status_code == 201
-    pid = r.json()["id"]
-    assert client.put("/voices/active", headers=auth(c), json={"id": pid}).json()[0]["active"]
-    assert client.delete(f"/voices/{pid}", headers=auth(c)).status_code == 204
-    assert client.get("/voices", headers=auth(c)).json() == []
 
 
 def test_transcribe_endpoint(setup):

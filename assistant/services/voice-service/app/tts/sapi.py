@@ -1,4 +1,4 @@
-"""Voz del sistema de Windows (System.Speech / SAPI 5), sin clonación y sin dependencias.
+"""Voz del sistema de Windows (System.Speech / SAPI 5), sin dependencias. Opcional: por defecto habla el servidor.
 
 Se invoca ``powershell.exe`` (Windows PowerShell 5.1, que trae System.Speech). El texto viaja por
 un archivo temporal y las rutas por variables de entorno: nada del texto se interpola en el
@@ -15,7 +15,7 @@ import tempfile
 from pathlib import Path
 
 from ..audio.signal import decode_wav
-from .base import Speech, TtsError, VoiceRef
+from .base import Speech, TtsError
 
 SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
@@ -43,7 +43,6 @@ def encoded_script() -> str:
 
 class SapiTts:
     name = "sapi"
-    supports_cloning = False
 
     def __init__(self, culture: str = "es") -> None:
         self.culture = culture
@@ -59,7 +58,7 @@ class SapiTts:
             return "solo disponible en Windows"
         return self.warning or "voz de Windows"
 
-    def synthesize(self, text: str, voice: VoiceRef | None, speed: float) -> Speech:  # noqa: ARG002
+    def synthesize(self, text: str, speed: float) -> Speech:
         if not self.ready:
             raise TtsError("la voz de Windows solo existe en Windows")
         with tempfile.TemporaryDirectory(prefix="jarvis-tts-") as tmp:

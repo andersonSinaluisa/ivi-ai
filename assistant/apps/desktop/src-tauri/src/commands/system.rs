@@ -66,23 +66,23 @@ pub async fn get_status(state: State<'_, Arc<AppState>>) -> CmdResult<SystemStat
             let detail = if found {
                 "instalado".to_owned()
             } else if alternatives.is_empty() {
-                format!("no instalado. Ejecuta: ollama pull {model}")
+                format!("no está en el servidor. En el servidor: ollama pull {model}")
             } else {
-                format!("no instalado. Instálalo (ollama pull {model}) o elige uno de los Qwen instalados")
+                format!("no está en el servidor (ollama pull {model}) o elige uno de los Qwen que sí están")
             };
             (
-                OllamaCheck { ok: true, detail: format!("Ollama {}", h.version), version: Some(h.version) },
+                OllamaCheck { ok: true, detail: format!("Ollama {} en el servidor", h.version), version: Some(h.version) },
                 ModelCheck { ok: found, detail, name: model, installed: found, alternatives },
             )
         }
         Err(e) => {
             let detail = match e {
-                LlmError::Unavailable(_) => "Ollama no responde en la URL configurada. Instálalo desde ollama.com y ejecútalo.".to_owned(),
+                LlmError::Unavailable(m) => m,
                 other => other.to_string(),
             };
             (
                 OllamaCheck { ok: false, detail, version: None },
-                ModelCheck { ok: false, detail: "sin comprobar (Ollama no disponible)".into(), name: model, installed: false, alternatives: vec![] },
+                ModelCheck { ok: false, detail: "sin comprobar (servidor no disponible)".into(), name: model, installed: false, alternatives: vec![] },
             )
         }
     };

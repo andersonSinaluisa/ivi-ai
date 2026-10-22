@@ -169,6 +169,7 @@ pub struct OllamaEmbedder {
     client: reqwest::Client,
     base_url: String,
     model: String,
+    auth: crate::infrastructure::llm::Auth,
 }
 
 impl OllamaEmbedder {
@@ -180,7 +181,19 @@ impl OllamaEmbedder {
             .timeout(Duration::from_secs(120))
             .build()
             .map_err(|e| EmbeddingError::Protocol(e.to_string()))?;
-        Ok(Self { client, base_url: base_url.trim_end_matches('/').to_owned(), model: model.to_owned() })
+        Ok(Self {
+            client,
+            base_url: base_url.trim_end_matches('/').to_owned(),
+            model: model.to_owned(),
+            auth: crate::infrastructure::llm::Auth::none(),
+        })
+    }
+
+    /// Credencial para el Ollama del servidor (la del device emparejado).
+    #[must_use]
+    pub fn with_auth(mut self, auth: crate::infrastructure::llm::Auth) -> Self {
+        self.auth = auth;
+        self
     }
 }
 
@@ -202,14 +215,18 @@ impl EmbeddingProvider for OllamaEmbedder {
         if texts.is_empty() {
             return Ok(Vec::new());
         }
-        let response = self
-            .client
-            .post(format!("{}/api/embed", self.base_url))
-            .json(&json!({"model": self.model, "input": texts}))
-            .send()
-            .await
-            .map_err(|e| EmbeddingError::Unavailable(e.to_string()))?;
+        if self.base_url.is_empty() {
+            return Err(EmbeddingError::Unavailable("este equipo no está conectado a tu servidor".into()));
+        }
+        let mut request = self.client.post(format!("{}/api/embed", self.base_url)).json(&json!({"model": self.model, "input": texts}));
+        if let Some(token) = self.auth.token().await {
+            request = request.bearer_auth(token);
+        }
+        let response = request.send().await.map_err(|e| EmbeddingError::Unavailable(e.to_string()))?;
         let status = response.status();
+        if matches!(status.as_u16(), 401 | 403 | 502..=504) {
+            return Err(EmbeddingError::Unavailable(format!("el servidor respondió HTTP {status}")));
+        }
         let body: Value = response.json().await.map_err(|e| EmbeddingError::Protocol(e.to_string()))?;
         if status.as_u16() == 404 {
             return Err(EmbeddingError::ModelNotFound(self.model.clone()));

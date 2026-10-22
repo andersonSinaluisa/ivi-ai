@@ -143,6 +143,23 @@ impl SyncEngine {
         self.client.read().ok().and_then(|c| c.clone())
     }
 
+    /// URL del servidor emparejado (None si este equipo no está emparejado). Modelos, transcripción y voz cuelgan de
+    /// ella: `/ollama`, `/stt`, `/tts`.
+    #[must_use]
+    pub fn server_url(&self) -> Option<String> {
+        self.client().map(|c| c.base_url().to_owned())
+    }
+
+    /// Token de acceso del device (se renueva solo antes de caducar). nginx lo valida contra el Cloud Core.
+    ///
+    /// # Errors
+    /// Sin emparejar, credencial revocada o servidor inaccesible.
+    pub async fn service_token(&self) -> Result<String, CloudError> {
+        let client = self.client().ok_or_else(|| CloudError::Config("este equipo no está emparejado".into()))?;
+        // Margen amplio: el servicio de voz lo recibe cada minuto y no debe quedarse con uno a punto de caducar.
+        client.token_valid_for(&self.secrets, false, chrono::Duration::minutes(3)).await
+    }
+
     fn mode(&self) -> SyncMode {
         match self.store.meta("mode").ok().flatten().as_deref() {
             Some("hybrid") => SyncMode::Hybrid,
@@ -458,5 +475,18 @@ impl SyncEngine {
         }
         self.run_once().await?;
         Ok(self.status())
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::infrastructure::llm::BearerSource for SyncEngine {
+    async fn bearer(&self) -> Option<String> {
+        match self.service_token().await {
+            Ok(token) => Some(token),
+            Err(e) => {
+                tracing::debug!(error = %e, "sin credencial del device para el servidor");
+                None
+            }
+        }
     }
 }

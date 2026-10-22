@@ -1,7 +1,8 @@
-"""jarvis-stt: transcripción con faster-whisper para el servicio de voz del escritorio (opcional).
+"""jarvis-stt: transcripción con faster-whisper para el servicio de voz del escritorio.
 
 No forma parte del Cloud Core (ADR-010: el Cloud Core no ejecuta modelos). Es un servicio aparte del owner, como
-Ollama: escucha solo en 127.0.0.1 y nginx lo publica en /stt/ con un token (ver nginx/extra/stt.conf.example).
+Ollama: escucha solo en 127.0.0.1 y nginx lo publica en /stt/, exigiendo la credencial de Jarvis (auth_request a
+/api/v1/access/check).
 
 API compatible con OpenAI (``POST /v1/audio/transcriptions``, multipart con ``file`` y ``language`` opcional) para
 que el cliente también funcione contra otros servidores compatibles. Solo acepta WAV PCM (lo que envía el escritorio):

@@ -19,6 +19,7 @@ import type {
   LocalConflict,
   PairRequest,
   ProbeResult,
+  ServiceCredential,
   SyncMode,
   SyncReport,
   SyncStatus,
@@ -130,6 +131,10 @@ export interface Backend {
   cloudSyncNow(): Promise<SyncReport>;
   cloudConflicts(): Promise<LocalConflict[]>;
   cloudResolveConflict(id: string, resolution: "keep_server" | "keep_device" | "custom", data?: Record<string, unknown>): Promise<SyncStatus>;
+  /** Credencial del equipo para los servicios del servidor (se entrega al servicio de voz local). */
+  cloudServiceCredential(): Promise<ServiceCredential>;
+  /** Servidor propuesto al emparejar (`[cloud] default_url`). */
+  cloudDefaultUrl(): Promise<string>;
   getInference(): Promise<InferenceView>;
   updateInference(settings: InferenceSettings, apiKey?: string | null): Promise<InferenceView>;
   testInference(): Promise<InferenceTest>;
@@ -207,6 +212,8 @@ export const tauriBackend: Backend = {
   cloudSyncNow: () => call("cloud_sync_now"),
   cloudConflicts: () => call("cloud_conflicts"),
   cloudResolveConflict: (id, resolution, data) => call("cloud_resolve_conflict", { id, resolution, data: data ?? null }),
+  cloudServiceCredential: () => call("cloud_service_credential"),
+  cloudDefaultUrl: () => call("cloud_default_url"),
   getInference: () => call("get_inference"),
   updateInference: (settings, apiKey) => call("update_inference", { settings, apiKey: apiKey ?? null }),
   testInference: () => call("test_inference"),

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { LocalConflict, SyncMode, SyncStatus } from "@jarvis/shared-types";
 import { backend } from "../../services/backend";
 import { useUi } from "../../stores/uiStore";
+import { useVoice } from "../../stores/voiceStore";
 import { Button, Dot, Notice } from "../../components/ui";
 import { Field, input, relativeTime, Row, SectionTitle } from "./fields";
 
@@ -91,6 +92,14 @@ export function CloudSettings() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ url: "", email: "", password: "", deviceName: "PC de escritorio" });
   const go = useUi((s) => s.go);
+
+  // Propone el servidor de jarvis.toml ([cloud] default_url) para emparejar con un clic.
+  useEffect(() => {
+    void backend()
+      .cloudDefaultUrl()
+      .then((url) => setForm((f) => (f.url ? f : { ...f, url })))
+      .catch(() => undefined);
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -186,12 +195,14 @@ export function CloudSettings() {
               void run("Equipo emparejado: la sincronización empieza ahora.", async () => {
                 await backend().cloudPair(form);
                 setForm({ ...form, password: "" });
+                // La voz empieza a usar el servidor sin esperar a la renovación periódica.
+                void useVoice.getState().pushServerCredential();
               });
             }}
           >
             <p className="mb-2 text-sm text-mist">
-              Conecta este equipo a tu Cloud Core para que la memoria, las experiencias y las habilidades sobrevivan a un cambio
-              de PC. La contraseña solo se usa para registrar el equipo; no se guarda.
+              Conecta este equipo a tu servidor: ahí corren Qwen, la transcripción y la voz, y se guarda la memoria. Sin emparejar,
+              Jarvis no puede responder. La contraseña solo se usa para registrar el equipo; no se guarda.
             </p>
             <Field label="URL del Cloud Core" hint="https://jarvis.tu-dominio">
               <input className={input} required value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} />

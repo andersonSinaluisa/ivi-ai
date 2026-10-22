@@ -41,11 +41,11 @@ if (-not (Test-Path (Join-Path $venv 'Scripts\python.exe'))) {
 }
 $python = Join-Path $venv 'Scripts\python.exe'
 & $python -m pip install --upgrade pip
-$extras = 'audio,stt,dev'
+$extras = 'audio,dev'
 if ($WithWakeWord) { $extras += ',wakeword' }
 & $python -m pip install -e "$svc[$extras]"
 if ($LASTEXITCODE -ne 0) { throw 'pip install fallo' }
 
 Write-Host "`nListo." -ForegroundColor Green
-Write-Host 'El modelo de transcripcion (whisper "base", ~145 MB) se descarga la primera vez que arranca el servicio de voz.'
+Write-Host 'La transcripcion y la voz estan en tu servidor: empareja la PC en Configuracion -> Infraestructura.'
 Write-Host 'Siguiente: scripts\dev.ps1'

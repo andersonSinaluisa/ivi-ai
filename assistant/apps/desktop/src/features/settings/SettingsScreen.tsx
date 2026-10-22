@@ -37,6 +37,8 @@ export function SettingsScreen() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-10">
+      {/* Primero el servidor: sin emparejar, Jarvis no tiene modelo, transcripción ni voz. */}
+      <CloudSettings />
       <section>
         <ScreenHeader title="Modelo">
           <Button tone="primary" onClick={() => void save()}>
@@ -44,22 +46,19 @@ export function SettingsScreen() {
           </Button>
         </ScreenHeader>
         {message && <Notice tone={message.tone}>{message.text}</Notice>}
-        <Field label="Modelo de Ollama" hint="Debe admitir herramientas (Qwen3 lo hace)">
+        <Field label="Modelo" hint="Instalado en el Ollama del servidor; debe admitir herramientas (Qwen3 lo hace)">
           <input list="models" className={input} value={draft.model} onChange={(e) => set("model", e.target.value)} />
           <datalist id="models">
             {models.map((m) => (
               <option key={m} value={m} />
             ))}
           </datalist>
-          {models.length > 0 && <span className="mt-1 block text-xs text-mist">Instalados: {models.join(", ")}</span>}
-        </Field>
-        <Field label="URL de Ollama">
-          <input className={input} value={draft.baseUrl} onChange={(e) => set("baseUrl", e.target.value)} />
+          {models.length > 0 && <span className="mt-1 block text-xs text-mist">En el servidor: {models.join(", ")}</span>}
         </Field>
         <Field label="Temperatura" hint="Más baja = más predecible">
           <input type="number" step={0.1} min={0} max={2} className={input} value={draft.temperature} onChange={(e) => set("temperature", Number(e.target.value))} />
         </Field>
-        <Field label="Contexto (tokens)" hint="Más contexto usa más memoria de GPU">
+        <Field label="Contexto (tokens)" hint="Más contexto usa más memoria en el servidor">
           <input type="number" step={1024} min={1024} className={input} value={draft.numCtx} onChange={(e) => set("numCtx", Number(e.target.value))} />
         </Field>
         <Field label="Razonamiento previo" hint="Más lento, a veces más preciso">
@@ -87,7 +86,6 @@ export function SettingsScreen() {
         </Field>
       </section>
       <ModelSettings />
-      <CloudSettings />
       <VoiceSettings />
     </div>
   );
