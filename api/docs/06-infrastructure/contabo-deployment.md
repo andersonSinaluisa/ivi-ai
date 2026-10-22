@@ -111,14 +111,27 @@ esquema `memory`— cifrada con `age`, escribe `SHA256SUMS` y deja los `.age` le
 `backup.verify` del worker comprueba antigüedad, cabecera `age` y suma; la restauración de prueba se hace fuera del VPS,
 donde está la clave privada.
 
-## Inferencia remota opcional
+## Inferencia remota opcional (Qwen en el VPS)
 
-El Cloud Core **no** ejecuta modelos. Si algún día se quiere un Qwen remoto (p. ej. en otro equipo con GPU), el
-escritorio ya lo soporta (Configuración → Modelos → «Ollama remoto» o «API compatible») con modo `auto`
-(local primero, remoto si el local no responde). Requisitos si se hiciera en este VPS — **no está hecho ni se
-recomienda sin GPU**:
+El Cloud Core **no** ejecuta modelos: Ollama es un servicio aparte del owner. Si está en el VPS, se publica por el nginx
+de Jarvis con TLS y un token, nunca abriendo el puerto 11434:
 
-- Ollama escuchando solo en `127.0.0.1:11434` y publicado por nginx en una ruta con TLS y autenticación
-  (`Authorization: Bearer`, el escritorio guarda la clave en el Administrador de credenciales).
-- Límite de memoria propio para que no compita con PostgreSQL.
-- Nunca exponer el puerto 11434 directamente.
+1. Ollama escucha solo en loopback: `ss -tlnp 'sport = :11434'` debe mostrar `127.0.0.1:11434`. Si muestra `0.0.0.0` o
+   `*`, en `systemctl edit ollama` poner `Environment="OLLAMA_HOST=127.0.0.1:11434"` (o publicar el contenedor como
+   `127.0.0.1:11434:11434`) y reiniciar Ollama.
+2. Ruta con token (la plantilla del sitio incluye `/etc/nginx/jarvis-extra/*.conf`, que `deploy.sh` no sobrescribe):
+
+   ```bash
+   TOKEN=$(openssl rand -hex 32); echo "$TOKEN"     # guárdalo: va en la app
+   sudo install -d -m 0750 /etc/nginx/jarvis-extra
+   sed "s/__TOKEN__/$TOKEN/" deploy/nginx/extra/ollama.conf.example | sudo tee /etc/nginx/jarvis-extra/ollama.conf >/dev/null
+   sudo chmod 0640 /etc/nginx/jarvis-extra/ollama.conf
+   sudo nginx -t && sudo systemctl reload nginx
+   curl -H "Authorization: Bearer $TOKEN" https://<dominio>/ollama/api/tags   # lista los modelos
+   ```
+3. En la app: Configuración → **Modelos** → «Ollama remoto», URL `https://<dominio>/ollama`, modelo tal como aparece en
+   `ollama list`, clave = el token (se guarda en el Administrador de credenciales). Preferencia «Remoto» si la PC no
+   tiene Ollama; «Automático» para usar el local y caer al VPS.
+
+Sin GPU, Qwen en el VPS responde despacio (`qwen3:4b` en CPU: varios segundos por respuesta) y compite por RAM con
+PostgreSQL. Los embeddings de la memoria siguen calculándose en la PC; sin Ollama local la memoria usa búsqueda léxica.

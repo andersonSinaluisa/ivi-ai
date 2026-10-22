@@ -95,5 +95,9 @@ server {
     proxy_pass http://jarvis_api;
   }
 
+  # Rutas opcionales del owner que deploy.sh no gestiona (p. ej. Ollama remoto, ver contabo-deployment.md).
+  # Sobreviven a cada despliegue; si la carpeta está vacía no se incluye nada.
+  include /etc/nginx/jarvis-extra/*.conf;
+
   location / { return 404; }
 }
